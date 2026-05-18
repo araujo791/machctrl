@@ -41,14 +41,48 @@ jobs:
       - name: Revert commits
         run: |
           COMMITS="${{ github.event.inputs.commit_shas }}"
+          REVERT_COUNT=0
+          FAILED_COMMITS=()
+          
           for commit in $COMMITS; do
-            echo "Revertendo: $commit"
-            git revert --no-edit "$commit" || true
+            echo "🔄 Revertendo: $commit"
+            if git revert --no-edit "$commit" 2>&1; then
+              ((REVERT_COUNT++))
+              echo "✅ Sucesso ao reverter $commit"
+            else
+              echo "⚠️ Falha ao reverter $commit"
+              FAILED_COMMITS+=("$commit")
+            fi
           done
+          
+          echo ""
+          echo "📊 Resumo:"
+          echo "  - Revertidos com sucesso: $REVERT_COUNT"
+          echo "  - Falhados: ${#FAILED_COMMITS[@]}"
+          
+          if [ $REVERT_COUNT -eq 0 ]; then
+            echo "❌ Erro: Nenhum commit foi revertido com sucesso"
+            exit 1
+          fi
+          
+          echo "REVERT_COUNT=$REVERT_COUNT" >> $GITHUB_ENV
+
+      - name: Check if there are changes
+        run: |
+          CHANGES=$(git diff --name-only origin/${{ github.event.inputs.branch }})
+          if [ -z "$CHANGES" ]; then
+            echo "❌ Erro: Nenhuma mudança detectada entre as branches"
+            echo "Arquivos modificados:"
+            git diff --stat
+            exit 1
+          fi
+          echo "✅ Mudanças detectadas:"
+          echo "$CHANGES"
 
       - name: Push branch
         run: |
           git push origin ${{ env.REVERT_BRANCH }}
+          echo "✅ Branch 'revert/lovable-*' enviada com sucesso"
 
       - name: Create Pull Request
         uses: actions/github-script@v7
@@ -56,6 +90,7 @@ jobs:
           script: |
             const branch = process.env.REVERT_BRANCH;
             const commits = process.env.COMMITS.split(' ');
+            const revertCount = process.env.REVERT_COUNT;
             
             const { data: pr } = await github.rest.pulls.create({
               owner: context.repo.owner,
@@ -63,10 +98,11 @@ jobs:
               title: '🔄 Reverter commits do lovable-dev[bot] de 2026-05-17',
               head: branch,
               base: '${{ github.event.inputs.branch }}',
-              body: `## Revert dos Commits\n\n**Data:** 2026-05-17\n**Autor:** lovable-dev[bot]\n\n### Commits Revertidos:\n${commits.map(c => `- \`${c}\``).join('\n')}\n\n---\n\n✅ Revise as mudanças antes de fazer merge.`
+              body: `## Revert dos Commits\n\n**Data:** 2026-05-17\n**Autor:** lovable-dev[bot]\n**Status:** ✅ ${revertCount} commits revertidos com sucesso\n\n### Commits Revertidos:\n${commits.map(c => `- \`${c}\``).join('\n')}\n\n---\n\n✅ Revise as mudanças antes de fazer merge.`
             });
             
-            console.log(`✅ PR criado: ${pr.html_url}`);
+            console.log(`✅ PR criado com sucesso: ${pr.html_url}`);
         env:
           REVERT_BRANCH: ${{ env.REVERT_BRANCH }}
           COMMITS: ${{ github.event.inputs.commit_shas }}
+          REVERT_COUNT: ${{ env.REVERT_COUNT }}
