@@ -1,0 +1,68 @@
+name: Reverter Commits do Lovable-dev[bot]
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit_shas:
+        description: 'SHAs dos commits separados por espaço'
+        required: true
+        default: '829e1a99b32cfd90ebab2543237388b7ab21f203 ae331643146d8a1188eda9f01c8ca6a41f876d63 d7732442ca3faa26fd50da69f480e91de611068f a8026a3d50645d455b08ff726f74d85b430c92b9 ebe27bcb7c6a4c46c7a73e59ecfb4137fd43c044 4de62d36aee0be3b0b819a515d9f2ba381fb86bc'
+      branch:
+        description: 'Branch para reverter'
+        required: false
+        default: 'main'
+
+jobs:
+  revert-commits:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.inputs.branch }}
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Create revert branch
+        run: |
+          TIMESTAMP=$(date +%s)
+          git checkout -b revert/lovable-$TIMESTAMP
+          echo "REVERT_BRANCH=revert/lovable-$TIMESTAMP" >> $GITHUB_ENV
+
+      - name: Revert commits
+        run: |
+          COMMITS="${{ github.event.inputs.commit_shas }}"
+          for commit in $COMMITS; do
+            echo "Revertendo: $commit"
+            git revert --no-edit "$commit" || true
+          done
+
+      - name: Push branch
+        run: |
+          git push origin ${{ env.REVERT_BRANCH }}
+
+      - name: Create Pull Request
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const branch = process.env.REVERT_BRANCH;
+            const commits = process.env.COMMITS.split(' ');
+            
+            const { data: pr } = await github.rest.pulls.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: '🔄 Reverter commits do lovable-dev[bot] de 2026-05-17',
+              head: branch,
+              base: '${{ github.event.inputs.branch }}',
+              body: `## Revert dos Commits\n\n**Data:** 2026-05-17\n**Autor:** lovable-dev[bot]\n\n### Commits Revertidos:\n${commits.map(c => `- \`${c}\``).join('\n')}\n\n---\n\n✅ Revise as mudanças antes de fazer merge.`
+            });
+            
+            console.log(`✅ PR criado: ${pr.html_url}`);
+        env:
+          REVERT_BRANCH: ${{ env.REVERT_BRANCH }}
+          COMMITS: ${{ github.event.inputs.commit_shas }}
