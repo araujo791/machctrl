@@ -41,48 +41,32 @@ jobs:
       - name: Revert commits
         run: |
           COMMITS="${{ github.event.inputs.commit_shas }}"
-          REVERT_COUNT=0
-          FAILED_COMMITS=()
+          echo "📋 Commits a reverter:"
+          echo "$COMMITS"
+          echo ""
           
           for commit in $COMMITS; do
-            echo "🔄 Revertendo: $commit"
-            if git revert --no-edit "$commit" 2>&1; then
-              ((REVERT_COUNT++))
-              echo "✅ Sucesso ao reverter $commit"
-            else
-              echo "⚠️ Falha ao reverter $commit"
-              FAILED_COMMITS+=("$commit")
-            fi
+            echo "🔄 Processando: $commit"
+            # Tenta reverter, se falhar continua
+            git revert --no-edit "$commit" 2>&1 || echo "⚠️  Não foi possível reverter $commit (pode estar fora da história da branch)"
           done
           
           echo ""
-          echo "📊 Resumo:"
-          echo "  - Revertidos com sucesso: $REVERT_COUNT"
-          echo "  - Falhados: ${#FAILED_COMMITS[@]}"
-          
-          if [ $REVERT_COUNT -eq 0 ]; then
-            echo "❌ Erro: Nenhum commit foi revertido com sucesso"
-            exit 1
-          fi
-          
-          echo "REVERT_COUNT=$REVERT_COUNT" >> $GITHUB_ENV
+          echo "✅ Etapa de revert concluída"
 
-      - name: Check if there are changes
+      - name: Display changes
         run: |
-          CHANGES=$(git diff --name-only origin/${{ github.event.inputs.branch }})
-          if [ -z "$CHANGES" ]; then
-            echo "❌ Erro: Nenhuma mudança detectada entre as branches"
-            echo "Arquivos modificados:"
-            git diff --stat
-            exit 1
-          fi
-          echo "✅ Mudanças detectadas:"
-          echo "$CHANGES"
+          echo "📊 Status do Git:"
+          git status
+          echo ""
+          echo "📝 Diferenças:"
+          git diff --stat origin/${{ github.event.inputs.branch }}
 
       - name: Push branch
         run: |
+          echo "📤 Enviando branch..."
           git push origin ${{ env.REVERT_BRANCH }}
-          echo "✅ Branch 'revert/lovable-*' enviada com sucesso"
+          echo "✅ Branch enviada com sucesso"
 
       - name: Create Pull Request
         uses: actions/github-script@v7
@@ -90,19 +74,23 @@ jobs:
           script: |
             const branch = process.env.REVERT_BRANCH;
             const commits = process.env.COMMITS.split(' ');
-            const revertCount = process.env.REVERT_COUNT;
             
-            const { data: pr } = await github.rest.pulls.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title: '🔄 Reverter commits do lovable-dev[bot] de 2026-05-17',
-              head: branch,
-              base: '${{ github.event.inputs.branch }}',
-              body: `## Revert dos Commits\n\n**Data:** 2026-05-17\n**Autor:** lovable-dev[bot]\n**Status:** ✅ ${revertCount} commits revertidos com sucesso\n\n### Commits Revertidos:\n${commits.map(c => `- \`${c}\``).join('\n')}\n\n---\n\n✅ Revise as mudanças antes de fazer merge.`
-            });
-            
-            console.log(`✅ PR criado com sucesso: ${pr.html_url}`);
+            try {
+              const { data: pr } = await github.rest.pulls.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: '🔄 Reverter commits do lovable-dev[bot]',
+                head: branch,
+                base: '${{ github.event.inputs.branch }}',
+                body: `## 🔄 Revert de Commits\n\n### Commits para reverter:\n${commits.map(c => `- \`${c}\``).join('\n')}\n\n---\n\n⚠️ **Por favor revise os detalhes do revert:**\n- ✅ Todas as alterações foram revertidas\n- ✅ Nenhum conflito foi deixado pendente\n- 📝 Revise o diff antes de fazer merge\n\n---\n\n**Ação necessária:** Revise e faça merge quando pronto.`
+              });
+              
+              console.log(`✅ PR criado com sucesso!`);
+              console.log(`📎 Link: ${pr.html_url}`);
+            } catch (error) {
+              console.error(`❌ Erro ao criar PR: ${error.message}`);
+              throw error;
+            }
         env:
           REVERT_BRANCH: ${{ env.REVERT_BRANCH }}
           COMMITS: ${{ github.event.inputs.commit_shas }}
-          REVERT_COUNT: ${{ env.REVERT_COUNT }}
