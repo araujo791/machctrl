@@ -50,12 +50,31 @@ jobs:
           
           for commit in $COMMITS; do
             echo "🔄 Processando: $commit"
-            if git revert --no-edit "$commit" 2>&1; then
-              ((REVERT_SUCCESS++))
-              echo "✅ Revertido com sucesso"
+            
+            # Verifica se é um merge commit
+            PARENT_COUNT=$(git rev-list --parents -n 1 $commit | wc -w)
+            PARENT_COUNT=$((PARENT_COUNT - 1))
+            
+            if [ $PARENT_COUNT -gt 1 ]; then
+              echo "   ℹ️ É um merge commit (parents: $PARENT_COUNT)"
+              # Para merge commits, usa -m 1 para manter o primeiro parent
+              if git revert -m 1 --no-edit "$commit" 2>&1; then
+                ((REVERT_SUCCESS++))
+                echo "   ✅ Revertido com sucesso (merge)"
+              else
+                ((REVERT_FAILED++))
+                echo "   ⚠️ Falha ao reverter merge"
+              fi
             else
-              ((REVERT_FAILED++))
-              echo "⚠️ Falha ao reverter (pode estar fora da história)"
+              echo "   ℹ️ É um commit normal"
+              # Para commits normais, revert simples
+              if git revert --no-edit "$commit" 2>&1; then
+                ((REVERT_SUCCESS++))
+                echo "   ✅ Revertido com sucesso"
+              else
+                ((REVERT_FAILED++))
+                echo "   ⚠️ Falha ao reverter"
+              fi
             fi
           done
           
