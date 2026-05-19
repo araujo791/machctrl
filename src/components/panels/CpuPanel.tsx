@@ -1,3 +1,4 @@
+import { useRef, useEffect, useState } from 'react'
 import { Sparkline } from '../shared/Sparkline'
 import type { SensorData } from '../../hooks/useSensorData'
 
@@ -27,7 +28,7 @@ export function CpuPanel({ data, cpuHistory }: CpuPanelProps) {
         const coreCount   = sock?.core_count   ?? Math.ceil(cpu.cores.length / 2)
         const threadCount = sock?.thread_count ?? cpu.cores.length
 
-        const shortName = model.replace(/Intel\(R\)|Core\(TM\)/gi, '').replace(/\s+/g, ' ').trim()
+        const shortName  = model.replace(/Intel\(R\)|Core\(TM\)/gi, '').replace(/\s+/g, ' ').trim()
         const usageColor = usage > 85 ? 'hsl(var(--red))' : usage > 60 ? 'hsl(var(--orange))' : 'hsl(var(--accent))'
         const tempColor  = pkg   > 85 ? 'hsl(var(--red))' : pkg   > 70 ? 'hsl(var(--orange))' : 'hsl(var(--green))'
 
@@ -37,10 +38,9 @@ export function CpuPanel({ data, cpuHistory }: CpuPanelProps) {
             background: 'hsl(var(--surface))',
             border: '1px solid hsl(var(--border))',
           }}>
-            {/* ── Header ── */}
+            {/* Header */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                {/* Badge */}
                 <div style={{
                   width: 52, height: 52, borderRadius: 14, flexShrink: 0,
                   display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
@@ -48,9 +48,7 @@ export function CpuPanel({ data, cpuHistory }: CpuPanelProps) {
                   border: '1px solid hsl(var(--accent) / 0.4)',
                 }}>
                   <span style={{ fontSize: 9, color: 'hsl(var(--muted))', lineHeight: 1 }}>CPU</span>
-                  <span style={{ fontSize: 22, fontWeight: 900, color: 'hsl(var(--accent))', lineHeight: 1.1 }}>
-                    {cpu.socket}
-                  </span>
+                  <span style={{ fontSize: 22, fontWeight: 900, color: 'hsl(var(--accent))', lineHeight: 1.1 }}>{cpu.socket}</span>
                 </div>
                 <div>
                   <div style={{ fontSize: 14, fontWeight: 700, color: 'hsl(var(--text))' }}>{shortName}</div>
@@ -59,33 +57,20 @@ export function CpuPanel({ data, cpuHistory }: CpuPanelProps) {
                   </div>
                 </div>
               </div>
-
               <div style={{ display: 'flex', gap: 20 }}>
-                <Metric label="Uso médio" value={`${Math.round(usage)}%`}      color={usageColor} />
-                <Metric label="Package"   value={`${Math.round(pkg)}°C`}       color={tempColor} />
-                <Metric label="Freq"      value={`${freq.toFixed(2)} GHz`}     color="hsl(var(--muted))" />
+                <Metric label="Uso médio" value={`${Math.round(usage)}%`}  color={usageColor} />
+                <Metric label="Package"   value={`${Math.round(pkg)}°C`}   color={tempColor} />
+                <Metric label="Freq"      value={`${freq.toFixed(2)} GHz`} color="hsl(var(--muted))" />
               </div>
             </div>
 
-            {/* ── Sparkline ── */}
+            {/* Sparkline */}
             <div style={{ height: 44, marginBottom: 16 }}>
               <Sparkline data={cpuHistory} height={44} color={usageColor} />
             </div>
 
-            {/* ── Legenda ── */}
-            <div style={{ display: 'flex', gap: 18, marginBottom: 12, fontSize: 10, color: 'hsl(var(--muted))' }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                <span style={{ width: 12, height: 7, borderRadius: 2, background: 'hsl(var(--accent))', display: 'inline-block' }} />
-                Atividade (%)
-              </span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                <span style={{ width: 12, height: 7, borderRadius: 2, background: 'hsl(32 100% 58%)', display: 'inline-block' }} />
-                Temperatura (°C)
-              </span>
-            </div>
-
-            {/* ── Barras de threads ── */}
-            <CoreGrid cores={cpu.cores} pkgTemp={pkg} />
+            {/* Grid de threads estilo Windows */}
+            <ThreadGrid cores={cpu.cores} pkgTemp={pkg} accentColor={usageColor} />
           </div>
         )
       })}
@@ -93,107 +78,146 @@ export function CpuPanel({ data, cpuHistory }: CpuPanelProps) {
   )
 }
 
-function CoreGrid({ cores, pkgTemp }: {
+function ThreadGrid({ cores, pkgTemp, accentColor }: {
   cores: SensorData['cpus_temps'][0]['cores']
   pkgTemp: number
+  accentColor: string
 }) {
-  const BAR_H = 120  // altura das barras
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [cols, setCols] = useState(8)
+
+  // Recalcula colunas com base na largura do container
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const calc = () => {
+      const w = el.clientWidth
+      // Cada quadrado tem ~72px + 6px gap. Calcula quantas cabem.
+      const CELL = 78
+      const c = Math.max(2, Math.floor(w / CELL))
+      setCols(c)
+    }
+    calc()
+    const ro = new ResizeObserver(calc)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
 
   return (
-    <div style={{
-      display: 'flex',
-      alignItems: 'flex-end',
-      justifyContent: 'center',   // centralizado
-      gap: 4,
-      width: '100%',
-      height: BAR_H + 46,         // barras + labels acima e abaixo
-      overflowX: 'auto',
-      paddingBottom: 2,
-    }}>
-      {cores.map((core: any) => {
-        const usage = Math.min(core.usage ?? 0, 100)
-        const temp  = Math.min(core.temp  ?? pkgTemp, 105)
+    <div ref={containerRef} style={{ width: '100%' }}>
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: `repeat(${cols}, 1fr)`,
+        gap: 6,
+        justifyItems: 'center',
+      }}>
+        {(cores as any[]).map((thread) => {
+          const usage = Math.min(Number(thread.usage ?? 0), 100)
+          const temp  = Math.min(Number(thread.temp  ?? pkgTemp), 105)
+          const isHT  = thread.is_ht ?? false
 
-        const usageH = Math.max(4, (usage / 100) * BAR_H)
-        const tempH  = Math.max(4, (temp  / 105) * BAR_H)
+          const usageColor = usage > 85
+            ? 'hsl(var(--red))'
+            : usage > 60
+            ? 'hsl(var(--orange))'
+            : accentColor
 
-        const tempColor  = temp  > 85 ? 'hsl(var(--red))' : temp  > 70 ? 'hsl(var(--orange))' : 'hsl(32 100% 58%)'
-        const usageColor = usage > 85 ? 'hsl(var(--red))' : usage > 60 ? 'hsl(var(--orange))' : 'hsl(var(--accent))'
-        const isHT       = core.is_ht ?? false
+          const tempColor = temp > 85
+            ? 'hsl(var(--red))'
+            : temp > 70
+            ? 'hsl(var(--orange))'
+            : 'hsl(32 100% 58%)'
 
-        return (
-          <div key={core.id} style={{
-            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
-            flex: '1 1 0',
-            minWidth: 16,
-            maxWidth: 36,
-            opacity: isHT ? 0.75 : 1,  // threads HT levemente mais apagados
-          }}>
-            {/* Temp acima */}
-            <div style={{
-              fontSize: 8, fontFamily: 'JetBrains Mono',
-              color: tempColor, lineHeight: 1, textAlign: 'center',
-              whiteSpace: 'nowrap',
-            }}>
-              {Math.round(temp)}°
-            </div>
-
-            {/* Duas barras */}
-            <div style={{ display: 'flex', gap: 2, alignItems: 'flex-end', height: BAR_H, width: '100%' }}>
-              {/* Atividade */}
+          return (
+            <div
+              key={thread.id}
+              title={`Thread ${thread.id} | Uso: ${Math.round(usage)}% | Temp: ${Math.round(temp)}°C`}
+              style={{
+                width: '100%',
+                aspectRatio: '1 / 1',
+                borderRadius: 6,
+                border: `1px solid ${usageColor}55`,
+                background: 'hsl(var(--border) / 0.4)',
+                position: 'relative',
+                overflow: 'hidden',
+                opacity: isHT ? 0.82 : 1,
+                transition: 'border-color 0.3s',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'flex-end',
+              }}
+            >
+              {/* Preenchimento de uso — sobe de baixo */}
               <div style={{
-                flex: 1, height: BAR_H,
-                display: 'flex', alignItems: 'flex-end',
-                background: 'hsl(var(--border))',
-                borderRadius: 4, overflow: 'hidden',
-                minWidth: 5,
+                position: 'absolute',
+                bottom: 0, left: 0, right: 0,
+                height: `${usage}%`,
+                background: `${usageColor}30`,
+                transition: 'height 0.4s cubic-bezier(0.4,0,0.2,1)',
+              }} />
+
+              {/* % de uso centralizado */}
+              <div style={{
+                position: 'absolute',
+                inset: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 11,
+                fontWeight: 700,
+                fontFamily: 'JetBrains Mono',
+                color: usageColor,
+                zIndex: 1,
               }}>
-                <div style={{
-                  width: '100%',
-                  height: `${usageH}px`,
-                  background: usageColor,
-                  borderRadius: 4,
-                  transition: 'height 0.4s cubic-bezier(0.4,0,0.2,1)',
-                  boxShadow: usage > 60 ? `0 0 6px ${usageColor}88` : 'none',
-                }} />
+                {Math.round(usage)}%
               </div>
-              {/* Temperatura */}
+
+              {/* Barinha de temperatura na base */}
               <div style={{
-                flex: 1, height: BAR_H,
-                display: 'flex', alignItems: 'flex-end',
+                position: 'absolute',
+                bottom: 0, left: 0, right: 0,
+                height: 4,
                 background: 'hsl(var(--border))',
-                borderRadius: 4, overflow: 'hidden',
-                minWidth: 5,
+                zIndex: 2,
               }}>
                 <div style={{
-                  width: '100%',
-                  height: `${tempH}px`,
+                  height: '100%',
+                  width: `${(temp / 105) * 100}%`,
                   background: tempColor,
-                  borderRadius: 4,
-                  transition: 'height 0.4s cubic-bezier(0.4,0,0.2,1)',
-                  boxShadow: temp > 70 ? `0 0 6px ${tempColor}88` : 'none',
+                  transition: 'width 0.4s cubic-bezier(0.4,0,0.2,1)',
+                  borderRadius: 2,
                 }} />
               </div>
-            </div>
 
-            {/* Uso % */}
-            <div style={{
-              fontSize: 8, fontFamily: 'JetBrains Mono',
-              color: usageColor, lineHeight: 1, textAlign: 'center',
-            }}>
-              {Math.round(usage)}%
+              {/* Label T0, T1... no topo */}
+              <div style={{
+                position: 'absolute',
+                top: 3, left: 0, right: 0,
+                textAlign: 'center',
+                fontSize: 8,
+                fontFamily: 'JetBrains Mono',
+                color: 'hsl(var(--muted))',
+                opacity: 0.6,
+                zIndex: 1,
+              }}>
+                T{thread.id}
+              </div>
             </div>
+          )
+        })}
+      </div>
 
-            {/* Label T0, T1... */}
-            <div style={{
-              fontSize: 7.5, color: 'hsl(var(--muted))',
-              opacity: 0.55, lineHeight: 1, textAlign: 'center',
-            }}>
-              T{core.id}
-            </div>
-          </div>
-        )
-      })}
+      {/* Legenda */}
+      <div style={{ display: 'flex', gap: 18, marginTop: 12, fontSize: 10, color: 'hsl(var(--muted))' }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+          <span style={{ width: 12, height: 7, borderRadius: 2, background: accentColor, opacity: 0.4, display: 'inline-block' }} />
+          Atividade (%)
+        </span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+          <span style={{ width: 12, height: 4, borderRadius: 2, background: 'hsl(32 100% 58%)', display: 'inline-block' }} />
+          Temperatura (°C)
+        </span>
+      </div>
     </div>
   )
 }
