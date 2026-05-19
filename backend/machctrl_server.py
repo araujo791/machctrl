@@ -463,7 +463,7 @@ def get_network_info(prev_counters=None, prev_time=None):
         }
         adapters = []
         for name, st in stats.items():
-            if not st.isup or name == "lo":
+            if name == "lo":
                 continue
             addr_list = addrs.get(name, [])
             ipv4 = next((a.address for a in addr_list if a.family == 2), "")

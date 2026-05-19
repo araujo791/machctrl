@@ -285,46 +285,37 @@ export function OverviewPanel({ data, cpuHistory }: OverviewProps) {
           </Card>
         )}
 
-        {/* Rede */}
-        {network.adapters?.length > 0 && (
-          <Card>
-            <CardTitle>Rede</CardTitle>
+        {/* Rede — sempre renderiza o card */}
+        <Card>
+          <CardTitle>Rede</CardTitle>
+          {(!network.adapters || network.adapters.length === 0) ? (
+            <div style={{ fontSize: 11, color: 'hsl(var(--muted))', padding: '8px 0' }}>
+              Nenhum adaptador detectado
+              <div style={{ fontSize: 9, marginTop: 4, fontFamily: 'JetBrains Mono', opacity: 0.6 }}>
+                network: {JSON.stringify(network).slice(0, 120)}
+              </div>
+            </div>
+          ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {network.adapters.map((adapter: any) => {
                 const downColor = adapter.down_mbps > 10 ? 'hsl(var(--red))' : adapter.down_mbps > 1 ? 'hsl(var(--orange))' : 'hsl(var(--accent))'
                 const upColor   = adapter.up_mbps   > 10 ? 'hsl(var(--red))' : adapter.up_mbps   > 1 ? 'hsl(var(--orange))' : 'hsl(var(--green))'
                 return (
                   <div key={adapter.name}>
-                    {/* Nome do adaptador */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
                       <div style={{ fontSize: 12, fontWeight: 700, color: 'hsl(var(--text))' }}>{adapter.name}</div>
                       {adapter.ip && <div style={{ fontSize: 9, fontFamily: 'JetBrains Mono', color: 'hsl(var(--muted))' }}>{adapter.ip}</div>}
                     </div>
-
-                    {/* Down / Up */}
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 4 }}>
-                      <div style={{
-                        padding: '8px 10px', borderRadius: 8,
-                        background: 'hsl(var(--border) / 0.4)',
-                        border: `1px solid ${downColor}33`,
-                      }}>
+                      <div style={{ padding: '8px 10px', borderRadius: 8, background: 'hsl(var(--border) / 0.4)', border: `1px solid ${downColor}33` }}>
                         <div style={{ fontSize: 9, color: 'hsl(var(--muted))', marginBottom: 2 }}>↓ Download</div>
-                        <div style={{ fontSize: 14, fontWeight: 800, fontFamily: 'JetBrains Mono', color: downColor }}>
-                          {fmtSpeed(adapter.down_mbps)}
-                        </div>
+                        <div style={{ fontSize: 14, fontWeight: 800, fontFamily: 'JetBrains Mono', color: downColor }}>{fmtSpeed(adapter.down_mbps)}</div>
                       </div>
-                      <div style={{
-                        padding: '8px 10px', borderRadius: 8,
-                        background: 'hsl(var(--border) / 0.4)',
-                        border: `1px solid ${upColor}33`,
-                      }}>
+                      <div style={{ padding: '8px 10px', borderRadius: 8, background: 'hsl(var(--border) / 0.4)', border: `1px solid ${upColor}33` }}>
                         <div style={{ fontSize: 9, color: 'hsl(var(--muted))', marginBottom: 2 }}>↑ Upload</div>
-                        <div style={{ fontSize: 14, fontWeight: 800, fontFamily: 'JetBrains Mono', color: upColor }}>
-                          {fmtSpeed(adapter.up_mbps)}
-                        </div>
+                        <div style={{ fontSize: 14, fontWeight: 800, fontFamily: 'JetBrains Mono', color: upColor }}>{fmtSpeed(adapter.up_mbps)}</div>
                       </div>
                     </div>
-
                     {adapter.speed_mb > 0 && (
                       <div style={{ fontSize: 9, color: 'hsl(var(--muted))' }}>
                         Velocidade: {adapter.speed_mb >= 1000 ? `${adapter.speed_mb/1000} Gbps` : `${adapter.speed_mb} Mbps`}
@@ -334,8 +325,8 @@ export function OverviewPanel({ data, cpuHistory }: OverviewProps) {
                 )
               })}
             </div>
-          </Card>
-        )}
+          )}
+        </Card>
 
       </div>
     </div>
