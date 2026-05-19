@@ -97,129 +97,103 @@ function CoreGrid({ cores, pkgTemp }: {
   cores: SensorData['cpus_temps'][0]['cores']
   pkgTemp: number
 }) {
-  const BAR_H = 120
-
-  // Agrupa threads por core físico (campo "core")
-  const coreGroups: Map<number, any[]> = new Map()
-  for (const t of cores as any[]) {
-    const key = t.core ?? t.id
-    if (!coreGroups.has(key)) coreGroups.set(key, [])
-    coreGroups.get(key)!.push(t)
-  }
-  const groups = Array.from(coreGroups.entries()).sort(([a], [b]) => a - b)
+  const BAR_H = 120  // altura das barras
 
   return (
     <div style={{
       display: 'flex',
       alignItems: 'flex-end',
-      gap: 8,                      // gap maior entre grupos de core
+      justifyContent: 'center',   // centralizado
+      gap: 4,
       width: '100%',
-      height: BAR_H + 56,
+      height: BAR_H + 46,         // barras + labels acima e abaixo
       overflowX: 'auto',
       paddingBottom: 2,
     }}>
-      {groups.map(([coreId, threads]) => (
-        <div key={coreId} style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: 0,
-          flex: '1 1 0',
-          minWidth: threads.length === 1 ? 18 : 32,
-          maxWidth: threads.length === 1 ? 36 : 72,
-        }}>
-          {/* Label do core físico acima */}
-          <div style={{
-            fontSize: 8, color: 'hsl(var(--muted))',
-            opacity: 0.7, lineHeight: 1, textAlign: 'center',
-            marginBottom: 3,
-            fontFamily: 'JetBrains Mono',
+      {cores.map((core: any) => {
+        const usage = Math.min(core.usage ?? 0, 100)
+        const temp  = Math.min(core.temp  ?? pkgTemp, 105)
+
+        const usageH = Math.max(4, (usage / 100) * BAR_H)
+        const tempH  = Math.max(4, (temp  / 105) * BAR_H)
+
+        const tempColor  = temp  > 85 ? 'hsl(var(--red))' : temp  > 70 ? 'hsl(var(--orange))' : 'hsl(32 100% 58%)'
+        const usageColor = usage > 85 ? 'hsl(var(--red))' : usage > 60 ? 'hsl(var(--orange))' : 'hsl(var(--accent))'
+        const isHT       = core.is_ht ?? false
+
+        return (
+          <div key={core.id} style={{
+            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+            flex: '1 1 0',
+            minWidth: 16,
+            maxWidth: 36,
+            opacity: isHT ? 0.75 : 1,  // threads HT levemente mais apagados
           }}>
-            C{coreId}
+            {/* Temp acima */}
+            <div style={{
+              fontSize: 8, fontFamily: 'JetBrains Mono',
+              color: tempColor, lineHeight: 1, textAlign: 'center',
+              whiteSpace: 'nowrap',
+            }}>
+              {Math.round(temp)}°
+            </div>
+
+            {/* Duas barras */}
+            <div style={{ display: 'flex', gap: 2, alignItems: 'flex-end', height: BAR_H, width: '100%' }}>
+              {/* Atividade */}
+              <div style={{
+                flex: 1, height: BAR_H,
+                display: 'flex', alignItems: 'flex-end',
+                background: 'hsl(var(--border))',
+                borderRadius: 4, overflow: 'hidden',
+                minWidth: 5,
+              }}>
+                <div style={{
+                  width: '100%',
+                  height: `${usageH}px`,
+                  background: usageColor,
+                  borderRadius: 4,
+                  transition: 'height 0.4s cubic-bezier(0.4,0,0.2,1)',
+                  boxShadow: usage > 60 ? `0 0 6px ${usageColor}88` : 'none',
+                }} />
+              </div>
+              {/* Temperatura */}
+              <div style={{
+                flex: 1, height: BAR_H,
+                display: 'flex', alignItems: 'flex-end',
+                background: 'hsl(var(--border))',
+                borderRadius: 4, overflow: 'hidden',
+                minWidth: 5,
+              }}>
+                <div style={{
+                  width: '100%',
+                  height: `${tempH}px`,
+                  background: tempColor,
+                  borderRadius: 4,
+                  transition: 'height 0.4s cubic-bezier(0.4,0,0.2,1)',
+                  boxShadow: temp > 70 ? `0 0 6px ${tempColor}88` : 'none',
+                }} />
+              </div>
+            </div>
+
+            {/* Uso % */}
+            <div style={{
+              fontSize: 8, fontFamily: 'JetBrains Mono',
+              color: usageColor, lineHeight: 1, textAlign: 'center',
+            }}>
+              {Math.round(usage)}%
+            </div>
+
+            {/* Label T0, T1... */}
+            <div style={{
+              fontSize: 7.5, color: 'hsl(var(--muted))',
+              opacity: 0.55, lineHeight: 1, textAlign: 'center',
+            }}>
+              T{core.id}
+            </div>
           </div>
-
-          {/* Threads lado a lado */}
-          <div style={{ display: 'flex', gap: 2, alignItems: 'flex-end', width: '100%' }}>
-            {threads.map((thread: any) => {
-              const usage = Math.min(thread.usage ?? 0, 100)
-              const temp  = Math.min(thread.temp  ?? pkgTemp, 105)
-              const usageH = Math.max(4, (usage / 100) * BAR_H)
-              const tempH  = Math.max(4, (temp  / 105) * BAR_H)
-              const tempColor  = temp  > 85 ? 'hsl(var(--red))' : temp  > 70 ? 'hsl(var(--orange))' : 'hsl(32 100% 58%)'
-              const usageColor = usage > 85 ? 'hsl(var(--red))' : usage > 60 ? 'hsl(var(--orange))' : 'hsl(var(--accent))'
-              const isHT = thread.is_ht ?? false
-
-              return (
-                <div key={thread.id} style={{
-                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
-                  flex: '1 1 0',
-                  minWidth: 14,
-                  opacity: isHT ? 0.78 : 1,
-                }}>
-                  {/* Temp acima */}
-                  <div style={{
-                    fontSize: 7.5, fontFamily: 'JetBrains Mono',
-                    color: tempColor, lineHeight: 1, textAlign: 'center',
-                    whiteSpace: 'nowrap',
-                  }}>
-                    {Math.round(temp)}°
-                  </div>
-
-                  {/* Duas barras: atividade + temperatura */}
-                  <div style={{ display: 'flex', gap: 1, alignItems: 'flex-end', height: BAR_H, width: '100%' }}>
-                    {/* Atividade */}
-                    <div style={{
-                      flex: 1, height: BAR_H,
-                      display: 'flex', alignItems: 'flex-end',
-                      background: 'hsl(var(--border))',
-                      borderRadius: 4, overflow: 'hidden',
-                      minWidth: 4,
-                    }}>
-                      <div style={{
-                        width: '100%', height: `${usageH}px`,
-                        background: usageColor, borderRadius: 4,
-                        transition: 'height 0.4s cubic-bezier(0.4,0,0.2,1)',
-                        boxShadow: usage > 60 ? `0 0 6px ${usageColor}88` : 'none',
-                      }} />
-                    </div>
-                    {/* Temperatura */}
-                    <div style={{
-                      flex: 1, height: BAR_H,
-                      display: 'flex', alignItems: 'flex-end',
-                      background: 'hsl(var(--border))',
-                      borderRadius: 4, overflow: 'hidden',
-                      minWidth: 4,
-                    }}>
-                      <div style={{
-                        width: '100%', height: `${tempH}px`,
-                        background: tempColor, borderRadius: 4,
-                        transition: 'height 0.4s cubic-bezier(0.4,0,0.2,1)',
-                        boxShadow: temp > 70 ? `0 0 6px ${tempColor}88` : 'none',
-                      }} />
-                    </div>
-                  </div>
-
-                  {/* Uso % */}
-                  <div style={{
-                    fontSize: 7.5, fontFamily: 'JetBrains Mono',
-                    color: usageColor, lineHeight: 1, textAlign: 'center',
-                  }}>
-                    {Math.round(usage)}%
-                  </div>
-
-                  {/* Label T0, T1... */}
-                  <div style={{
-                    fontSize: 7, color: 'hsl(var(--muted))',
-                    opacity: 0.55, lineHeight: 1, textAlign: 'center',
-                  }}>
-                    T{thread.id}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      ))}
+        )
+      })}
     </div>
   )
 }
