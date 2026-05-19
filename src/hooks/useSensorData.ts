@@ -77,6 +77,15 @@ export interface SensorData {
     uptime: string
     board: string
   }
+  network?: {
+    adapters: Array<{
+      name: string
+      ip: string
+      speed_mb: number
+      up_mbps: number
+      down_mbps: number
+    }>
+  }
   timestamp: number
 }
 
@@ -108,7 +117,7 @@ export function useSensorData(url = 'ws://localhost:8765') {
       try {
         const msg = JSON.parse(ev.data)
         // Backend envia 'initial_data' no primeiro envio e 'sensors_update' nas atualizações
-        if (msg.type === 'sensors' || msg.type === 'initial_data' || msg.type === 'sensors_update') {
+        if (msg.type === 'sensors' || msg.type === 'initial_data' || msg.type === 'sensors_update' || msg.type === 'sensor_data') {
           // Dados podem estar em msg.data ou direto em msg
           const d: SensorData = msg.data ?? msg
           setData(d)
