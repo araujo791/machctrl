@@ -456,6 +456,11 @@ def get_network_info(prev_counters=None, prev_time=None):
         addrs   = _psutil.net_if_addrs()
         io_now  = _psutil.net_io_counters(pernic=True)
         now_t   = time.time()
+        # Snapshot como dict simples para ser serializavel em JSON
+        snapshot = {
+            name: {"bytes_sent": c.bytes_sent, "bytes_recv": c.bytes_recv}
+            for name, c in io_now.items()
+        }
         adapters = []
         for name, st in stats.items():
             if not st.isup or name == "lo":
@@ -468,19 +473,17 @@ def get_network_info(prev_counters=None, prev_time=None):
                 dt = now_t - prev_time
                 if dt > 0:
                     prev = prev_counters[name]
-                    up_bps   = max(0, (io.bytes_sent - prev.bytes_sent) / dt)
-                    down_bps = max(0, (io.bytes_recv - prev.bytes_recv) / dt)
+                    up_bps   = max(0, (io.bytes_sent - prev["bytes_sent"]) / dt)
+                    down_bps = max(0, (io.bytes_recv - prev["bytes_recv"]) / dt)
             adapters.append({
                 "name":     name,
                 "ip":       ipv4,
                 "speed_mb": st.speed,
                 "up_mbps":  round(up_bps   / (1024 * 1024), 3),
                 "down_mbps":round(down_bps / (1024 * 1024), 3),
-                "up_kb":    round(up_bps   / 1024, 1),
-                "down_kb":  round(down_bps / 1024, 1),
             })
-        return {"adapters": adapters, "_io_snapshot": io_now, "_time": now_t}
-    except Exception:
+        return {"adapters": adapters, "_io_snapshot": snapshot, "_time": now_t}
+    except Exception as e:
         return {"adapters": [], "_io_snapshot": None, "_time": time.time()}
 
 
