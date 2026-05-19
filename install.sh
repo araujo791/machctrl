@@ -68,6 +68,13 @@ if [[ -z "$APP_IMAGE" ]]; then
   sudo -u "$CURRENT_USER" npm run build:appimage 2>&1 | grep -E "(built|error|AppImage|✓|✗)" || true
   APP_IMAGE=$(find "$SCRIPT_DIR/dist-electron" -name '*.AppImage' 2>/dev/null | head -1)
   [[ -n "$APP_IMAGE" ]] && ok "AppImage gerado: $APP_IMAGE" || { fail "Build falhou. Rode: cd machctrl-desktop && npm run build:appimage"; exit 1; }
+else
+  info "Rebuilding interface com source mais recente..."
+  cd "$SCRIPT_DIR"
+  sudo -u "$CURRENT_USER" npm install --prefer-offline 2>/dev/null || true
+  sudo -u "$CURRENT_USER" npm run build:appimage 2>&1 | grep -E "(built|error|AppImage|✓|✗)" || true
+  NEW_IMAGE=$(find "$SCRIPT_DIR/dist-electron" -name '*.AppImage' 2>/dev/null | head -1)
+  [[ -n "$NEW_IMAGE" ]] && APP_IMAGE="$NEW_IMAGE" && ok "AppImage atualizado: $APP_IMAGE"
 fi
 
 # ── 3. Instala em /opt/machctrl ───────────────────────────────────────────────
