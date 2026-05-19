@@ -456,6 +456,10 @@ def get_network_info(prev_counters=None, prev_time=None):
         addrs   = _psutil.net_if_addrs()
         io_now  = _psutil.net_io_counters(pernic=True)
         now_t   = time.time()
+        print(f"[NET] interfaces encontradas: {list(stats.keys())}", flush=True)
+        print(f"[NET] io_now keys: {list(io_now.keys())}", flush=True)
+        for n, s in stats.items():
+            print(f"[NET]   {n}: isup={s.isup} speed={s.speed}", flush=True)
         # Snapshot como dict simples para ser serializavel em JSON
         snapshot = {
             name: {"bytes_sent": c.bytes_sent, "bytes_recv": c.bytes_recv}
