@@ -392,6 +392,98 @@ def get_memory_info():
     return info
 
 
+def get_gpu_info():
+    """Retorna uso, VRAM e driver da GPU (NVIDIA via nvidia-smi, AMD via sysfs)."""
+    info = {"usage": 0, "vram_used_gb": 0.0, "vram_total_gb": 0.0, "driver": "", "vendor": "", "model": ""}
+    # --- NVIDIA ---
+    try:
+        r = subprocess.run(
+            ["nvidia-smi", "--query-gpu=utilization.gpu,memory.used,memory.total,driver_version,name",
+             "--format=csv,noheader,nounits"],
+            capture_output=True, text=True, timeout=3
+        )
+        if r.returncode == 0 and r.stdout.strip():
+            parts = [p.strip() for p in r.stdout.strip().split(",")]
+            if len(parts) >= 5:
+                info["usage"]        = float(parts[0])
+                info["vram_used_gb"] = round(float(parts[1]) / 1024, 2)
+                info["vram_total_gb"]= round(float(parts[2]) / 1024, 2)
+                info["driver"]       = parts[3]
+                info["vendor"]       = "NVIDIA"
+                info["model"]        = parts[4]
+                return info
+    except Exception:
+        pass
+    # --- AMD via sysfs ---
+    try:
+        base = "/sys/class/drm"
+        for card in sorted(os.listdir(base)):
+            p = os.path.join(base, card, "device")
+            vendor_path = os.path.join(p, "vendor")
+            if not os.path.exists(vendor_path):
+                continue
+            with open(vendor_path) as f:
+                vendor_id = f.read().strip()
+            if vendor_id not in ("0x1002",):  # AMD
+                continue
+            # Uso GPU
+            usage_path = os.path.join(p, "gpu_busy_percent")
+            if os.path.exists(usage_path):
+                with open(usage_path) as f:
+                    info["usage"] = float(f.read().strip())
+            # VRAM
+            for fname, key in [("mem_info_vram_used", "vram_used_gb"), ("mem_info_vram_total", "vram_total_gb")]:
+                fp = os.path.join(p, fname)
+                if os.path.exists(fp):
+                    with open(fp) as f:
+                        info[key] = round(int(f.read().strip()) / (1024**3), 2)
+            # Driver
+            drv_path = os.path.join(p, "driver")
+            if os.path.islink(drv_path):
+                info["driver"] = os.path.basename(os.readlink(drv_path))
+            info["vendor"] = "AMD"
+            break
+    except Exception:
+        pass
+    return info
+
+
+def get_network_info(prev_counters=None, prev_time=None):
+    """Retorna adaptadores de rede com velocidade de upload/download atual."""
+    try:
+        import psutil as _psutil
+        stats   = _psutil.net_if_stats()
+        addrs   = _psutil.net_if_addrs()
+        io_now  = _psutil.net_io_counters(pernic=True)
+        now_t   = time.time()
+        adapters = []
+        for name, st in stats.items():
+            if not st.isup or name == "lo":
+                continue
+            addr_list = addrs.get(name, [])
+            ipv4 = next((a.address for a in addr_list if a.family == 2), "")
+            io   = io_now.get(name)
+            up_bps = down_bps = 0.0
+            if io and prev_counters and name in prev_counters and prev_time:
+                dt = now_t - prev_time
+                if dt > 0:
+                    prev = prev_counters[name]
+                    up_bps   = max(0, (io.bytes_sent - prev.bytes_sent) / dt)
+                    down_bps = max(0, (io.bytes_recv - prev.bytes_recv) / dt)
+            adapters.append({
+                "name":     name,
+                "ip":       ipv4,
+                "speed_mb": st.speed,
+                "up_mbps":  round(up_bps   / (1024 * 1024), 3),
+                "down_mbps":round(down_bps / (1024 * 1024), 3),
+                "up_kb":    round(up_bps   / 1024, 1),
+                "down_kb":  round(down_bps / 1024, 1),
+            })
+        return {"adapters": adapters, "_io_snapshot": io_now, "_time": now_t}
+    except Exception:
+        return {"adapters": [], "_io_snapshot": None, "_time": time.time()}
+
+
 def get_gpu_name():
     """Detecta o nome da GPU via lspci."""
     try:
@@ -825,6 +917,8 @@ class SensorServer:
         # Disk I/O tracking
         self.prev_disk_io = {}
         self.prev_disk_time = None
+        self.prev_net_io = None
+        self.prev_net_time = None
         # Fan name mapping: sequential index -> pwm key
         self.fan_index_map = {}  # "fan1" -> "chip_pwm1", etc.
         self.fan_modes  = {}    # fan_id -> "auto"|"manual"|"max"
@@ -1331,6 +1425,11 @@ class SensorServer:
         except Exception:
             pass
 
+        # Rede
+        net_result = get_network_info(self.prev_net_io, self.prev_net_time)
+        self.prev_net_io   = net_result.pop("_io_snapshot", None)
+        self.prev_net_time = net_result.pop("_time", None)
+
         return {
             "type": "sensor_data",
             "timestamp": now.isoformat(),
@@ -1358,6 +1457,8 @@ class SensorServer:
             },
             "pwm_names": list(self.pwm_controls.keys()),
             "fan_map": self.fan_index_map,
+            "gpu": get_gpu_info(),
+            "network": net_result,
         }
 
     async def handler(self, websocket):
