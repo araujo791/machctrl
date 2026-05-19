@@ -7,6 +7,8 @@ interface CpuPanelProps {
   cpuHistory: number[]
 }
 
+const HISTORY_LEN = 40
+
 export function CpuPanel({ data, cpuHistory }: CpuPanelProps) {
   const cpusTemps = data.cpus_temps ?? []
   const sockets   = data.cpu?.sockets ?? []
@@ -64,12 +66,12 @@ export function CpuPanel({ data, cpuHistory }: CpuPanelProps) {
               </div>
             </div>
 
-            {/* Sparkline */}
+            {/* Sparkline geral */}
             <div style={{ height: 44, marginBottom: 16 }}>
               <Sparkline data={cpuHistory} height={44} color={usageColor} />
             </div>
 
-            {/* Grid de threads estilo Windows */}
+            {/* Grid de threads */}
             <ThreadGrid cores={cpu.cores} pkgTemp={pkg} accentColor={usageColor} />
           </div>
         )
@@ -86,16 +88,26 @@ function ThreadGrid({ cores, pkgTemp, accentColor }: {
   const containerRef = useRef<HTMLDivElement>(null)
   const [cols, setCols] = useState(8)
 
-  // Recalcula colunas com base na largura do container
+  // Histórico de uso por thread: { [threadId]: number[] }
+  const historyRef = useRef<Record<number, number[]>>({})
+
+  // Atualiza histórico de cada thread a cada render
+  ;(cores as any[]).forEach((thread) => {
+    const id = thread.id
+    if (!historyRef.current[id]) historyRef.current[id] = []
+    const h = historyRef.current[id]
+    h.push(Math.min(Number(thread.usage ?? 0), 100))
+    if (h.length > HISTORY_LEN) h.splice(0, h.length - HISTORY_LEN)
+  })
+
+  // ResizeObserver para colunas responsivas
   useEffect(() => {
     const el = containerRef.current
     if (!el) return
     const calc = () => {
       const w = el.clientWidth
-      // Cada quadrado tem ~72px + 6px gap. Calcula quantas cabem.
-      const CELL = 78
-      const c = Math.max(2, Math.floor(w / CELL))
-      setCols(c)
+      // ~90px por célula (quadrado + gap)
+      setCols(Math.max(2, Math.floor(w / 90)))
     }
     calc()
     const ro = new ResizeObserver(calc)
@@ -109,12 +121,12 @@ function ThreadGrid({ cores, pkgTemp, accentColor }: {
         display: 'grid',
         gridTemplateColumns: `repeat(${cols}, 1fr)`,
         gap: 6,
-        justifyItems: 'center',
       }}>
         {(cores as any[]).map((thread) => {
           const usage = Math.min(Number(thread.usage ?? 0), 100)
           const temp  = Math.min(Number(thread.temp  ?? pkgTemp), 105)
           const isHT  = thread.is_ht ?? false
+          const history = historyRef.current[thread.id] ?? []
 
           const usageColor = usage > 85
             ? 'hsl(var(--red))'
@@ -128,79 +140,90 @@ function ThreadGrid({ cores, pkgTemp, accentColor }: {
             ? 'hsl(var(--orange))'
             : 'hsl(32 100% 58%)'
 
+          const tempPct = (temp / 105) * 100
+
           return (
             <div
               key={thread.id}
               title={`Thread ${thread.id} | Uso: ${Math.round(usage)}% | Temp: ${Math.round(temp)}°C`}
               style={{
-                width: '100%',
                 aspectRatio: '1 / 1',
-                borderRadius: 6,
-                border: `1px solid ${usageColor}55`,
-                background: 'hsl(var(--border) / 0.4)',
+                borderRadius: 7,
+                border: `1px solid ${usageColor}44`,
+                background: 'hsl(var(--border) / 0.35)',
                 position: 'relative',
                 overflow: 'hidden',
-                opacity: isHT ? 0.82 : 1,
-                transition: 'border-color 0.3s',
+                opacity: isHT ? 0.85 : 1,
                 display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'flex-end',
+                flexDirection: 'row',
               }}
             >
-              {/* Preenchimento de uso — sobe de baixo */}
-              <div style={{
-                position: 'absolute',
-                bottom: 0, left: 0, right: 0,
-                height: `${usage}%`,
-                background: `${usageColor}30`,
-                transition: 'height 0.4s cubic-bezier(0.4,0,0.2,1)',
-              }} />
+              {/* Área principal: gráfico + label */}
+              <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
 
-              {/* % de uso centralizado */}
-              <div style={{
-                position: 'absolute',
-                inset: 0,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: 11,
-                fontWeight: 700,
-                fontFamily: 'JetBrains Mono',
-                color: usageColor,
-                zIndex: 1,
-              }}>
-                {Math.round(usage)}%
+                {/* Gráfico de uso preenchendo o fundo */}
+                <div style={{ position: 'absolute', inset: 0 }}>
+                  <Sparkline
+                    data={history}
+                    height={200}
+                    color={usageColor}
+                    fill={true}
+                    max={100}
+                  />
+                </div>
+
+                {/* % de uso no centro */}
+                <div style={{
+                  position: 'absolute', inset: 0,
+                  display: 'flex', flexDirection: 'column',
+                  alignItems: 'center', justifyContent: 'center',
+                  gap: 1,
+                }}>
+                  <div style={{
+                    fontSize: 13, fontWeight: 700,
+                    fontFamily: 'JetBrains Mono',
+                    color: usageColor,
+                    lineHeight: 1,
+                    textShadow: '0 1px 4px hsl(var(--surface))',
+                  }}>
+                    {Math.round(usage)}%
+                  </div>
+                  <div style={{
+                    fontSize: 7.5,
+                    fontFamily: 'JetBrains Mono',
+                    color: 'hsl(var(--muted))',
+                    opacity: 0.6,
+                    lineHeight: 1,
+                  }}>
+                    T{thread.id}
+                  </div>
+                </div>
               </div>
 
-              {/* Barinha de temperatura na base */}
+              {/* Barra de temperatura na lateral direita */}
               <div style={{
-                position: 'absolute',
-                bottom: 0, left: 0, right: 0,
-                height: 4,
+                width: 5,
                 background: 'hsl(var(--border))',
-                zIndex: 2,
+                position: 'relative',
+                flexShrink: 0,
+                display: 'flex',
+                alignItems: 'flex-end',
               }}>
                 <div style={{
-                  height: '100%',
-                  width: `${(temp / 105) * 100}%`,
+                  position: 'absolute',
+                  bottom: 0, left: 0, right: 0,
+                  height: `${tempPct}%`,
                   background: tempColor,
-                  transition: 'width 0.4s cubic-bezier(0.4,0,0.2,1)',
-                  borderRadius: 2,
+                  transition: 'height 0.4s cubic-bezier(0.4,0,0.2,1)',
+                  borderRadius: '0 0 2px 2px',
                 }} />
-              </div>
-
-              {/* Label T0, T1... no topo */}
-              <div style={{
-                position: 'absolute',
-                top: 3, left: 0, right: 0,
-                textAlign: 'center',
-                fontSize: 8,
-                fontFamily: 'JetBrains Mono',
-                color: 'hsl(var(--muted))',
-                opacity: 0.6,
-                zIndex: 1,
-              }}>
-                T{thread.id}
+                {/* Temp °C tooltip visual — aparece no topo da barra */}
+                <div style={{
+                  position: 'absolute',
+                  bottom: `${tempPct}%`,
+                  left: '50%', transform: 'translateX(-50%)',
+                  fontSize: 0, // invisível, info no title do container
+                }} />
               </div>
             </div>
           )
@@ -210,11 +233,11 @@ function ThreadGrid({ cores, pkgTemp, accentColor }: {
       {/* Legenda */}
       <div style={{ display: 'flex', gap: 18, marginTop: 12, fontSize: 10, color: 'hsl(var(--muted))' }}>
         <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-          <span style={{ width: 12, height: 7, borderRadius: 2, background: accentColor, opacity: 0.4, display: 'inline-block' }} />
+          <span style={{ width: 12, height: 7, borderRadius: 2, background: accentColor, opacity: 0.5, display: 'inline-block' }} />
           Atividade (%)
         </span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-          <span style={{ width: 12, height: 4, borderRadius: 2, background: 'hsl(32 100% 58%)', display: 'inline-block' }} />
+          <span style={{ width: 5, height: 12, borderRadius: 2, background: 'hsl(32 100% 58%)', display: 'inline-block' }} />
           Temperatura (°C)
         </span>
       </div>
