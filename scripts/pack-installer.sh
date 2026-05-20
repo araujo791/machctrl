@@ -12,7 +12,7 @@ VERSION=$(node -p "require('./package.json').version" 2>/dev/null || echo "2.0.0
 APPIMAGE=$(find "$SCRIPT_DIR/dist-electron" -name '*.AppImage' 2>/dev/null | head -1)
 BACKEND="$SCRIPT_DIR/backend/machctrl_server.py"
 ICON="$SCRIPT_DIR/src/assets/app-icon.png"
-OUT="$SCRIPT_DIR/MachCtrl-Installer.sh"
+OUT="$SCRIPT_DIR/MachCtrl-Installer.desktop"
 TMP_ICON=$(mktemp /tmp/machctrl-icon.XXXXXX)
 TMP_PY=$(mktemp /tmp/machctrl-gen.XXXXXX.py)
 trap 'rm -f "$TMP_ICON" "$TMP_PY"' EXIT
@@ -248,16 +248,29 @@ PLAIN="$OUT"
 KEY=$(echo "${APPIMAGE_MD5}machctrl2024" | md5sum | cut -d' ' -f1)
 echo -n "  Criptografando... "
 
-# Gera wrapper: 8 linhas de cabeçalho + dados cifrados em base64 a partir da linha 9
+# Salva ícone em base64 para embutir no .desktop
+ICON_B64_SMALL=""
+[[ -f "$ICON" ]] && ICON_B64_SMALL=$(gzip -9 -c "$ICON" | base64 -w0)
+
+# Copia ícone para local permanente (usado pelo .desktop)
+ICON_SYSTEM="/usr/share/pixmaps/machctrl-installer.png"
+ICON_LOCAL="$(dirname "$PLAIN")/.machctrl-icon.png"
+[[ -f "$ICON" ]] && cp "$ICON" "$ICON_LOCAL"
+
+# Gera wrapper .desktop — KDE/GNOME mostra ícone e executa ao clicar duas vezes
 cat > "${PLAIN}.wrap" << WRAPEOF
-#!/bin/bash
-# MachCtrl v${VERSION} — Instalador
-# Arquivo protegido. Qualquer modificação invalida o instalador.
-_K=\$(echo "${APPIMAGE_MD5}machctrl2024" | md5sum | cut -d' ' -f1)
-_T=\$(mktemp /tmp/.mc.XXXXXX)
-trap 'rm -f "\$_T"' EXIT
-tail -n +9 "\$0" | openssl enc -d -aes-256-cbc -pbkdf2 -iter 100000 -a -pass "pass:\${_K}" -out "\$_T" 2>/dev/null || { echo "Arquivo corrompido ou modificado." >&2; exit 1; }
-chmod +x "\$_T" && exec bash "\$_T"; exit 0
+[Desktop Entry]
+Name=Instalar MachCtrl ${VERSION}
+Comment=Monitor de Hardware para Linux — Clique duas vezes para instalar
+Exec=bash -c '_K=\$(echo "${APPIMAGE_MD5}machctrl2024" | md5sum | cut -d" " -f1); _T=\$(mktemp /tmp/.mc.XXXXXX); trap "rm -f \$_T" EXIT; tail -n +14 "%k" | openssl enc -d -aes-256-cbc -pbkdf2 -iter 100000 -a -pass "pass:\${_K}" -out "\$_T" 2>/dev/null && chmod +x "\$_T" && bash "\$_T" || kdialog --error "Instalador corrompido." 2>/dev/null'
+Icon=${ICON_LOCAL}
+Terminal=false
+Type=Application
+Categories=System;
+StartupNotify=true
+X-KDE-SubstituteVariables=false
+X-MachCtrl-Version=${VERSION}
+X-MachCtrl-MD5=${APPIMAGE_MD5}
 WRAPEOF
 
 # Cifra o instalador plaintext e appenda em base64 após o wrapper
@@ -270,37 +283,18 @@ echo "OK"
 SIZE=$(du -sh "$OUT" | cut -f1)
 MD5=$(md5sum "$OUT" | cut -d' ' -f1)
 
-# ── Gera .desktop com ícone para o gerenciador de arquivos ────────────────────
-DESKTOP_OUT="$(dirname "$OUT")/Instalar MachCtrl.desktop"
-ICON_DEST="$(dirname "$OUT")/.machctrl-installer-icon.png"
-
-# Extrai o ícone para a pasta do instalador
-[[ -f "$ICON" ]] && cp "$ICON" "$ICON_DEST"
-
-cat > "$DESKTOP_OUT" << DESKEOF
-[Desktop Entry]
-Name=Instalar MachCtrl
-Comment=MachCtrl v${VERSION} — Monitor de Hardware para Linux
-Exec=bash "$(realpath "$OUT")"
-Icon=${ICON_DEST}
-Terminal=false
-Type=Application
-Categories=System;
-StartupNotify=true
-DESKEOF
-chmod +x "$DESKTOP_OUT"
+# Arquivo .desktop já tem ícone embutido — nada extra necessário
 
 echo ""
 echo "╔══════════════════════════════════════════════════════╗"
 echo "║  ✅  Instalador gerado com sucesso!                  ║"
 echo "╠══════════════════════════════════════════════════════╣"
-printf "║  Instalador: %-39s║\n" "MachCtrl-Installer.sh"
-printf "║  Atalho:     %-39s║\n" "Instalar MachCtrl.desktop"
+printf "║  Instalador: %-39s║\n" "MachCtrl-Installer.desktop"
+
 printf "║  Tamanho:    %-39s║\n" "$SIZE"
 printf "║  MD5:        %-39s║\n" "$MD5"
 echo "╠══════════════════════════════════════════════════════╣"
-echo "║  Distribua os dois arquivos juntos:                  ║"
-echo "║    • MachCtrl-Installer.sh                           ║"
-echo "║    • Instalar MachCtrl.desktop                       ║"
-echo "║  O usuário clica duas vezes no .desktop              ║"
+echo "║  Distribua apenas este arquivo:                      ║"
+echo "║    • MachCtrl-Installer.desktop                      ║"
+echo "║  O usuário clica duas vezes para instalar            ║"
 echo "╚══════════════════════════════════════════════════════╝"
