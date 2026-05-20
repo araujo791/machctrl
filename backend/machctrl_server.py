@@ -798,7 +798,7 @@ def set_fan_speed(pwm_path, pwm_enable_path, speed_percent):
         return False
 
 
-def set_fan_auto(pwm_enable_path):
+def set_fan_auto(pwm_enable_path, pwm_path=None):
     """Coloca fan em modo automático via pwm_enable."""
     if not pwm_enable_path or not os.path.exists(pwm_enable_path):
         return False
@@ -806,14 +806,21 @@ def set_fan_auto(pwm_enable_path):
         # Tenta modo 2 (auto controlado pelo hardware/BIOS)
         with open(pwm_enable_path, "w") as f:
             f.write("2")
-        import time; time.sleep(0.05)
+        import time; time.sleep(0.1)
         with open(pwm_enable_path) as f:
             val = f.read().strip()
-        if val == "2":
-            return True
-        # Fallback: modo 0 (firmware) para chips como amdgpu
-        with open(pwm_enable_path, "w") as f:
-            f.write("0")
+        if val != "2":
+            # Fallback: modo 0 (firmware) para chips como amdgpu
+            with open(pwm_enable_path, "w") as f:
+                f.write("0")
+        # Garante que o valor PWM não fica travado em 255 (max manual)
+        # Alguns chips ignoram o pwm value em modo auto, mas outros não
+        if pwm_path and os.path.exists(pwm_path):
+            try:
+                with open(pwm_path, "w") as f:
+                    f.write("180")  # ~70% como valor seguro de partida
+            except Exception:
+                pass
         return True
     except PermissionError:
         print("ERRO set_fan_auto: sem permissão (root necessário)")
@@ -959,7 +966,7 @@ class SensorServer:
                     if pwm_name in self.pwm_controls:
                         info = self.pwm_controls[pwm_name]
                         if mode == "auto":
-                            set_fan_auto(info.get("pwm_enable"))
+                            set_fan_auto(info.get("pwm_enable"), info.get("pwm"))
                         elif mode in ("manual", "max"):
                             speed = self.fan_speeds.get(fan_id, 100) if mode == "manual" else 100
                             set_fan_speed(info["pwm"], info.get("pwm_enable"), speed)
@@ -1540,10 +1547,15 @@ class SensorServer:
             fan_key = cmd.get("fan", "")
             pwm_path, pwm_enable = resolve_fan_ctrl(fan_key)
             if pwm_path:
-                success = set_fan_auto(pwm_enable)
+                success = set_fan_auto(pwm_enable, pwm_path)
                 if success:
                     self.fan_modes.pop(fan_key, None)
                     self.fan_speeds.pop(fan_key, None)
+                    # Remove também pelo label_full para garantir limpeza
+                    for k in list(self.fan_modes.keys()):
+                        if k == fan_key or fan_key in k or k in fan_key:
+                            self.fan_modes.pop(k, None)
+                            self.fan_speeds.pop(k, None)
                     self._save_settings()
                 await websocket.send(json.dumps({
                     "type": "command_result", "action": "set_fan_auto",
