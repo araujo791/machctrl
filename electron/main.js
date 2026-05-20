@@ -151,6 +151,10 @@ ipcMain.handle('set-autostart', (_, enable) => {
 
 // ─── Lifecycle ───────────────────────────────────────────────────────────────
 app.commandLine.appendSwitch('disable-features', 'BlockInsecurePrivateNetworkRequests')
+app.commandLine.appendSwitch('disable-gpu-vsync')
+app.commandLine.appendSwitch('disable-software-rasterizer')
+app.commandLine.appendSwitch('ignore-gpu-blocklist')
+app.commandLine.appendSwitch('log-level', '3')  // suprimir warnings do Chromium
 
 app.whenReady().then(async () => {
   await startBackend()
