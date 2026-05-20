@@ -162,9 +162,11 @@ StartupNotify=true
 DESKTOP
 ok ".desktop criado"
 
-# Recarrega menu de apps no KDE/GNOME
-kbuildsycoca6 --noincremental 2>/dev/null || kbuildsycoca5 --noincremental 2>/dev/null || true
-xdg-desktop-menu forceupdate 2>/dev/null || true
+# Recarrega menu — deve rodar como usuario, nao root
+update-desktop-database /usr/share/applications 2>/dev/null || true
+if [[ -n "$CURRENT_USER" && "$CURRENT_USER" != "root" ]]; then
+  sudo -u "$CURRENT_USER" bash -c 'kbuildsycoca6 --noincremental 2>/dev/null || kbuildsycoca5 --noincremental 2>/dev/null || true; xdg-desktop-menu forceupdate 2>/dev/null || true' 2>/dev/null || true
+fi
 
 # ── Resumo ────────────────────────────────────────────────────────────────────
 echo -e "\n${C_GREEN}${C_BOLD}"
