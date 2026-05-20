@@ -202,11 +202,25 @@ fi
 busy_stop
 rm -f "$ROOT_SCRIPT"
 
+
+reload_menu_for_user() {
+  local RUSER="$1"
+  [[ -z "$RUSER" || "$RUSER" == "root" ]] && return
+  local DBUS_ADDR
+  DBUS_ADDR=$(grep -z DBUS_SESSION_BUS_ADDRESS \
+    /proc/$(pgrep -u "$RUSER" -x "kwin_wayland\|kwin_x11\|gnome-shell\|plasmashell" | head -1)/environ \
+    2>/dev/null | tr -d '\0' | sed 's/DBUS_SESSION_BUS_ADDRESS=//' || true)
+  [[ -z "$DBUS_ADDR" ]] && DBUS_ADDR=$(grep -z DBUS_SESSION_BUS_ADDRESS \
+    /proc/$(pgrep -u "$RUSER" | head -1)/environ \
+    2>/dev/null | tr -d '\0' | sed 's/DBUS_SESSION_BUS_ADDRESS=//' || true)
+  update-desktop-database /usr/share/applications 2>/dev/null || true
+  sudo -u "$RUSER" env DBUS_SESSION_BUS_ADDRESS="$DBUS_ADDR" \
+    bash -c 'kbuildsycoca6 --noincremental 2>/dev/null || kbuildsycoca5 --noincremental 2>/dev/null || true; xdg-desktop-menu forceupdate 2>/dev/null || true' \
+    2>/dev/null || true
+}
 if [[ $EXIT_CODE -eq 0 ]] && grep -q "SUCESSO" "$LOG_FILE" 2>/dev/null; then
-  # Recarrega menu de apps no KDE/GNOME
-  kbuildsycoca6 --noincremental 2>/dev/null || \
-  kbuildsycoca5 --noincremental 2>/dev/null || true
-  xdg-desktop-menu forceupdate 2>/dev/null || true
+  REAL_USER="${SUDO_USER:-$(logname 2>/dev/null || whoami)}"
+  reload_menu_for_user "$REAL_USER"
   msg "✅  MachCtrl ${APP_VERSION} instalado com sucesso!\n\nAbra pelo menu de apps → MachCtrl\nou pelo terminal: machctrl"
 else
   msg "❌  Falha na instalação.\n\nLog: $LOG_FILE"

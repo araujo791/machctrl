@@ -186,11 +186,30 @@ fi
 progress_end
 rm -f "$ROOT_SCRIPT"
 
-# Recarrega menu — como usuario, nao root
+
+# ── Recarrega menu no KDE/GNOME ───────────────────────────────────────────────
+reload_menu_for_user() {
+  local RUSER="$1"
+  [[ -z "$RUSER" || "$RUSER" == "root" ]] && return
+  # Pega DBUS_SESSION_BUS_ADDRESS do processo do usuario
+  local DBUS_ADDR
+  DBUS_ADDR=$(grep -z DBUS_SESSION_BUS_ADDRESS \
+    /proc/$(pgrep -u "$RUSER" -x "kwin_wayland\|kwin_x11\|gnome-shell\|plasmashell" | head -1)/environ \
+    2>/dev/null | tr -d '\0' | sed 's/DBUS_SESSION_BUS_ADDRESS=//')
+  if [[ -z "$DBUS_ADDR" ]]; then
+    # Fallback: pega de qualquer processo do usuario
+    DBUS_ADDR=$(grep -z DBUS_SESSION_BUS_ADDRESS \
+      /proc/$(pgrep -u "$RUSER" | head -1)/environ \
+      2>/dev/null | tr -d '\0' | sed 's/DBUS_SESSION_BUS_ADDRESS=//' || true)
+  fi
+  update-desktop-database /usr/share/applications 2>/dev/null || true
+  sudo -u "$RUSER" env DBUS_SESSION_BUS_ADDRESS="$DBUS_ADDR" \
+    bash -c 'kbuildsycoca6 --noincremental 2>/dev/null || kbuildsycoca5 --noincremental 2>/dev/null || true; xdg-desktop-menu forceupdate 2>/dev/null || true' \
+    2>/dev/null || true
+}
+
 REAL_USER="${SUDO_USER:-$(logname 2>/dev/null || whoami)}"
-if [[ -n "$REAL_USER" && "$REAL_USER" != "root" ]]; then
-  sudo -u "$REAL_USER" bash -c 'kbuildsycoca6 --noincremental 2>/dev/null || kbuildsycoca5 --noincremental 2>/dev/null || true; xdg-desktop-menu forceupdate 2>/dev/null || true' 2>/dev/null || true
-fi
+reload_menu_for_user "$REAL_USER"
 
 # ── Resultado ─────────────────────────────────────────────────────────────────
 if [[ $EXIT_CODE -eq 0 ]] && grep -q "SUCESSO" "$LOG_FILE" 2>/dev/null; then

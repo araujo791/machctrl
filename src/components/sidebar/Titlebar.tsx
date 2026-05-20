@@ -95,7 +95,8 @@ function WinBtn({ onClick, hoverColor, children }: {
   const [hovered, setHovered] = useState(false)
   return (
     <button
-      onClick={onClick}
+      onPointerDown={(e) => { e.stopPropagation(); e.preventDefault() }}
+      onClick={(e) => { e.stopPropagation(); onClick() }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
@@ -104,6 +105,7 @@ function WinBtn({ onClick, hoverColor, children }: {
         background: hovered ? `${hoverColor}33` : 'transparent',
         color: hovered ? hoverColor : 'hsl(var(--muted))',
         transition: 'all 0.15s',
+        WebkitAppRegion: 'no-drag' as any,
       }}
     >
       {children}

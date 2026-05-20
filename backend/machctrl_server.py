@@ -803,22 +803,29 @@ def set_fan_auto(pwm_enable_path, pwm_path=None):
     if not pwm_enable_path or not os.path.exists(pwm_enable_path):
         return False
     try:
-        # Tenta modo 2 (auto controlado pelo hardware/BIOS)
+        import time
+        # Lê o modo atual para saber de onde vem
+        with open(pwm_enable_path) as f:
+            current = f.read().strip()
+
+        # Tenta modo 2 (auto hardware — nct6798, it87, etc)
         with open(pwm_enable_path, "w") as f:
             f.write("2")
-        import time; time.sleep(0.1)
+        time.sleep(0.15)
         with open(pwm_enable_path) as f:
             val = f.read().strip()
+
         if val != "2":
-            # Fallback: modo 0 (firmware) para chips como amdgpu
+            # Fallback modo 0 (firmware/BIOS — amdgpu, alguns chips)
             with open(pwm_enable_path, "w") as f:
                 f.write("0")
-        # Garante que o valor PWM não fica travado em 255 (max manual)
-        # Alguns chips ignoram o pwm value em modo auto, mas outros não
+            time.sleep(0.1)
+
+        # Libera o valor PWM para o chip assumir controle
         if pwm_path and os.path.exists(pwm_path):
             try:
                 with open(pwm_path, "w") as f:
-                    f.write("180")  # ~70% como valor seguro de partida
+                    f.write("128")  # valor neutro de partida
             except Exception:
                 pass
         return True
