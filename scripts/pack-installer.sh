@@ -2,7 +2,6 @@
 # ═══════════════════════════════════════════════════════════════════════════════
 #  MachCtrl — Empacotador do Instalador Autoextraível
 #  Rode após o build: bash scripts/pack-installer.sh
-#  Gera: MachCtrl-Installer.sh (arquivo único, não redistribuível)
 # ═══════════════════════════════════════════════════════════════════════════════
 set -euo pipefail
 
@@ -14,6 +13,9 @@ APPIMAGE=$(find "$SCRIPT_DIR/dist-electron" -name '*.AppImage' 2>/dev/null | hea
 BACKEND="$SCRIPT_DIR/backend/machctrl_server.py"
 ICON="$SCRIPT_DIR/src/assets/app-icon.png"
 OUT="$SCRIPT_DIR/MachCtrl-Installer.sh"
+TMP_ICON=$(mktemp /tmp/machctrl-icon.XXXXXX)
+TMP_PY=$(mktemp /tmp/machctrl-gen.XXXXXX.py)
+trap 'rm -f "$TMP_ICON" "$TMP_PY"' EXIT
 
 [[ -f "$APPIMAGE" ]] || { echo "ERRO: AppImage não encontrado. Rode: npm run build:appimage"; exit 1; }
 [[ -f "$BACKEND"  ]] || { echo "ERRO: backend não encontrado"; exit 1; }
@@ -23,27 +25,32 @@ echo "╔═══════════════════════�
 echo "║  MachCtrl — Empacotando Instalador       ║"
 echo "╚══════════════════════════════════════════╝"
 echo "  Versão:   $VERSION"
-echo "  AppImage: $(du -sh "$APPIMAGE" | cut -f1)  ($APPIMAGE)"
+echo "  AppImage: $(du -sh "$APPIMAGE" | cut -f1)"
 echo "  MD5:      $APPIMAGE_MD5"
-echo "  Comprimindo e codificando (aguarde ~30s)..."
+echo "  Preparando..."
 
-# Pré-computa ícone (pequeno, cabe em variável)
-ICON_B64=""
-[[ -f "$ICON" ]] && ICON_B64=$(gzip -9 -c "$ICON" | base64 -w0)
+# Salva ícone b64 em arquivo temporário (evita "lista de argumentos muito longa")
+HAS_ICON=false
+if [[ -f "$ICON" ]]; then
+  gzip -9 -c "$ICON" | base64 -w0 > "$TMP_ICON"
+  HAS_ICON=true
+fi
 
-# ── Escreve o cabeçalho/lógica do instalador ──────────────────────────────────
-python3 - "$OUT" "$VERSION" "$APPIMAGE_MD5" "$ICON_B64" << 'PYEOF'
-import sys, textwrap
+# Gera o script Python em arquivo temporário
+cat > "$TMP_PY" << 'PYEOF'
+import sys, os
 
 out_path   = sys.argv[1]
 version    = sys.argv[2]
 appimg_md5 = sys.argv[3]
-icon_b64   = sys.argv[4]
+icon_file  = sys.argv[4]  # caminho para arquivo com icon b64, ou ""
 
-has_icon = "true" if icon_b64 else "false"
+icon_b64 = ""
+if icon_file and os.path.exists(icon_file):
+    with open(icon_file) as f:
+        icon_b64 = f.read().strip()
 
-script = textwrap.dedent(f"""\
-#!/bin/bash
+script = f"""#!/bin/bash
 # MachCtrl v{version} — Instalador Autoextraível
 # AppImage MD5: {appimg_md5}
 # ⚠️  Não redistribua — uso pessoal apenas.
@@ -53,28 +60,25 @@ LOG_FILE="/tmp/machctrl-install.log"
 CURRENT_USER="${{SUDO_USER:-$(logname 2>/dev/null || whoami)}}"
 SCRIPT_PATH="$(readlink -f "$0")"
 
-# ── Proteção: bloqueia execução como root direto (precisa do usuário real) ─────
 if [[ "$EUID" -eq 0 && -z "$SUDO_USER" ]]; then
-  echo "Não execute como root diretamente. Use: bash MachCtrl-Installer.sh" >&2
-  exit 1
+  echo "Não execute como root diretamente. Use: bash MachCtrl-Installer.sh" >&2; exit 1
 fi
 
-# ── GUI ────────────────────────────────────────────────────────────────────────
 if command -v kdialog &>/dev/null; then
   msg()        {{ kdialog --title "MachCtrl" --msgbox "$1" 2>/dev/null || echo "$1"; }}
   yesno()      {{ kdialog --title "MachCtrl" --yesno "$1" 2>/dev/null; }}
   busy_start() {{ kdialog --title "MachCtrl" --passivepopup "Instalando MachCtrl ${{APP_VERSION}}... aguarde." 600 2>/dev/null & BUSY_PID=$!; }}
-  busy_stop()  {{ kill "$BUSY_PID" 2>/dev/null || true; wait "$BUSY_PID" 2>/dev/null || true; }}
+  busy_stop()  {{ kill "$BUSY_PID" 2>/dev/null; wait "$BUSY_PID" 2>/dev/null || true; }}
 elif command -v zenity &>/dev/null; then
   msg()        {{ zenity --info --title "MachCtrl" --text "$1" --width 420 2>/dev/null || echo "$1"; }}
   yesno()      {{ zenity --question --title "MachCtrl" --text "$1" --width 420 2>/dev/null; }}
   busy_start() {{ zenity --progress --title "MachCtrl" --text "Instalando MachCtrl ${{APP_VERSION}}..." --pulsate --width 420 2>/dev/null & BUSY_PID=$!; }}
-  busy_stop()  {{ kill "$BUSY_PID" 2>/dev/null || true; wait "$BUSY_PID" 2>/dev/null || true; }}
+  busy_stop()  {{ kill "$BUSY_PID" 2>/dev/null; wait "$BUSY_PID" 2>/dev/null || true; }}
 elif command -v yad &>/dev/null; then
   msg()        {{ yad --title "MachCtrl" --text "$1" --button=OK:0 --width 420 2>/dev/null || echo "$1"; }}
   yesno()      {{ yad --title "MachCtrl" --text "$1" --button=Sim:0 --button="Não":1 --width 420 2>/dev/null; }}
   busy_start() {{ yad --title "MachCtrl" --text "Instalando..." --progress --pulsate --width 420 2>/dev/null & BUSY_PID=$!; }}
-  busy_stop()  {{ kill "$BUSY_PID" 2>/dev/null || true; wait "$BUSY_PID" 2>/dev/null || true; }}
+  busy_stop()  {{ kill "$BUSY_PID" 2>/dev/null; wait "$BUSY_PID" 2>/dev/null || true; }}
 else
   msg()        {{ echo -e "\\n[MachCtrl] $1\\n"; }}
   yesno()      {{ read -rp "[MachCtrl] $1 (s/N): " r; [[ "$r" =~ ^[Ss]$ ]]; }}
@@ -82,36 +86,38 @@ else
   busy_stop()  {{ true; }}
 fi
 
-# ── Já instalado? ──────────────────────────────────────────────────────────────
 if [[ -f "$INSTALL_DIR/MachCtrl.AppImage" ]]; then
   yesno "MachCtrl já está instalado.\\n\\nDeseja reinstalar / atualizar para v${{APP_VERSION}}?" || exit 0
 fi
 
-yesno "MachCtrl ${{APP_VERSION}} — Monitor de Hardware para Linux\\n\\n  ✦ Instalado em: /opt/machctrl\\n  ✦ Serviço automático: machctrl-backend\\n  ✦ Atalho no menu de apps: sim\\n  ✦ Dependências: python, lm_sensors, dmidecode\\n\\nDeseja instalar?" || exit 0
+yesno "MachCtrl ${{APP_VERSION}} — Monitor de Hardware para Linux\\n\\n  ✦ Instalado em: /opt/machctrl\\n  ✦ Serviço automático: machctrl-backend\\n  ✦ Atalho no menu: sim\\n  ✦ Dependências: python, lm_sensors, dmidecode\\n\\nDeseja instalar?" || exit 0
 
-# ── Extrai payloads para tmp ───────────────────────────────────────────────────
 TMPDIR_INST=$(mktemp -d /tmp/machctrl-inst.XXXXXX)
 trap 'rm -rf "$TMPDIR_INST"' EXIT
 
 busy_start
 
+echo "Extraindo AppImage..."
 sed -n '/^__APPIMAGE_START__$/,/^__APPIMAGE_END__$/{{/^__APPIMAGE/d;p}}' "$SCRIPT_PATH" | base64 -d | gunzip > "$TMPDIR_INST/MachCtrl.AppImage"
 chmod +x "$TMPDIR_INST/MachCtrl.AppImage"
+
+echo "Extraindo backend..."
 sed -n '/^__BACKEND_START__$/,/^__BACKEND_END__$/{{/^__BACKEND/d;p}}' "$SCRIPT_PATH" | base64 -d | gunzip > "$TMPDIR_INST/machctrl_server.py"
-""")
+"""
 
 if icon_b64:
-    script += f'\necho \'{icon_b64}\' | base64 -d | gunzip > "$TMPDIR_INST/app-icon.png" 2>/dev/null || true\n'
+    script += f"""
+echo "Extraindo ícone..."
+sed -n '/^__ICON_START__$/,/^__ICON_END__$/{{/^__ICON/d;p}}' "$SCRIPT_PATH" | base64 -d | gunzip > "$TMPDIR_INST/app-icon.png" 2>/dev/null || true
+"""
 
-script += textwrap.dedent(f"""\
-
-# ── Script root ────────────────────────────────────────────────────────────────
+script += """
 ROOT_SCRIPT=$(mktemp /tmp/machctrl-root.XXXXXX.sh)
 chmod +x "$ROOT_SCRIPT"
 
 cat > "$ROOT_SCRIPT" << 'ROOTEOF'
 #!/bin/bash
-exec > "$LOG_FILE" 2>&1
+exec >> "$LOG_FILE" 2>&1
 set -euo pipefail
 
 echo "[1/5] Dependências..."
@@ -125,11 +131,11 @@ mkdir -p "$INSTALL_DIR/backend"
 cp "$TMPDIR_INST/MachCtrl.AppImage" "$INSTALL_DIR/MachCtrl.AppImage"
 chmod +x "$INSTALL_DIR/MachCtrl.AppImage"
 cp "$TMPDIR_INST/machctrl_server.py" "$INSTALL_DIR/backend/machctrl_server.py"
-[[ -f "$TMPDIR_INST/app-icon.png" ]] && \\
-  install -Dm644 "$TMPDIR_INST/app-icon.png" /usr/share/pixmaps/machctrl.png && \\
-  install -Dm644 "$TMPDIR_INST/app-icon.png" /usr/share/icons/hicolor/256x256/apps/machctrl.png && \\
+if [[ -f "$TMPDIR_INST/app-icon.png" ]]; then
+  install -Dm644 "$TMPDIR_INST/app-icon.png" /usr/share/pixmaps/machctrl.png
+  install -Dm644 "$TMPDIR_INST/app-icon.png" /usr/share/icons/hicolor/256x256/apps/machctrl.png
   gtk-update-icon-cache /usr/share/icons/hicolor 2>/dev/null || true
-
+fi
 cat > /usr/local/bin/machctrl << 'LAUNCHEREOF'
 #!/bin/bash
 exec /opt/machctrl/MachCtrl.AppImage "$@"
@@ -200,29 +206,40 @@ busy_stop
 rm -f "$ROOT_SCRIPT"
 
 if [[ $EXIT_CODE -eq 0 ]] && grep -q "SUCESSO" "$LOG_FILE" 2>/dev/null; then
-  msg "✅  MachCtrl ${{APP_VERSION}} instalado!\\n\\nAbra pelo menu de apps → MachCtrl\\nou pelo terminal: machctrl"
+  msg "✅  MachCtrl ${APP_VERSION} instalado!\\n\\nAbra pelo menu de apps → MachCtrl\\nou pelo terminal: machctrl"
 else
   msg "❌  Falha na instalação.\\n\\nLog: $LOG_FILE"
 fi
 exit 0
-""")
+"""
 
 with open(out_path, 'w') as f:
     f.write(script)
-print("header OK")
+print("OK")
 PYEOF
 
-# ── Anexa payloads no final ───────────────────────────────────────────────────
-echo "" >> "$OUT"
-printf '__APPIMAGE_START__\n' >> "$OUT"
-echo -n "  Comprimindo AppImage... "
-gzip -9 -c "$APPIMAGE" | base64 -w76 >> "$OUT"
-echo "OK"
-printf '__APPIMAGE_END__\n' >> "$OUT"
+python3 "$TMP_PY" "$OUT" "$VERSION" "$APPIMAGE_MD5" "$TMP_ICON"
 
-printf '__BACKEND_START__\n' >> "$OUT"
+# ── Anexa payloads no final ───────────────────────────────────────────────────
+echo -n "  Comprimindo AppImage (~104MB, aguarde)... "
+printf '\n__APPIMAGE_START__\n' >> "$OUT"
+gzip -9 -c "$APPIMAGE" | base64 -w76 >> "$OUT"
+printf '__APPIMAGE_END__\n' >> "$OUT"
+echo "OK"
+
+echo -n "  Backend... "
+printf '\n__BACKEND_START__\n' >> "$OUT"
 gzip -9 -c "$BACKEND" | base64 -w76 >> "$OUT"
 printf '__BACKEND_END__\n' >> "$OUT"
+echo "OK"
+
+if [[ "$HAS_ICON" == "true" ]]; then
+  echo -n "  Ícone... "
+  printf '\n__ICON_START__\n' >> "$OUT"
+  cat "$TMP_ICON" >> "$OUT"
+  printf '\n__ICON_END__\n' >> "$OUT"
+  echo "OK"
+fi
 
 chmod +x "$OUT"
 SIZE=$(du -sh "$OUT" | cut -f1)
@@ -230,7 +247,7 @@ MD5=$(md5sum "$OUT" | cut -d' ' -f1)
 
 echo ""
 echo "╔══════════════════════════════════════════════════════╗"
-echo "║  ✅  Instalador gerado!                              ║"
+echo "║  ✅  Instalador gerado com sucesso!                  ║"
 echo "╠══════════════════════════════════════════════════════╣"
 printf "║  Arquivo: %-42s║\n" "MachCtrl-Installer.sh"
 printf "║  Tamanho: %-42s║\n" "$SIZE"
