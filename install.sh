@@ -162,6 +162,10 @@ StartupNotify=true
 DESKTOP
 ok ".desktop criado"
 
+# Recarrega menu de apps no KDE/GNOME
+kbuildsycoca6 --noincremental 2>/dev/null || kbuildsycoca5 --noincremental 2>/dev/null || true
+xdg-desktop-menu forceupdate 2>/dev/null || true
+
 # ── Resumo ────────────────────────────────────────────────────────────────────
 echo -e "\n${C_GREEN}${C_BOLD}"
 echo "  ╔══════════════════════════════════════════════╗"

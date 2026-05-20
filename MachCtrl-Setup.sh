@@ -159,6 +159,7 @@ Keywords=hardware;cpu;gpu;ram;monitor;temperatura;benchmark;
 StartupNotify=true
 DESKTOP
 update-desktop-database /usr/share/applications 2>/dev/null || true
+kbuildsycoca6 --noincremental 2>/dev/null || kbuildsycoca5 --noincremental 2>/dev/null || true
 
 rm -rf "\$WORK_DIR"
 echo "SUCESSO"
@@ -184,6 +185,10 @@ fi
 
 progress_end
 rm -f "$ROOT_SCRIPT"
+
+# Recarrega menu no contexto do usuário (KDE/GNOME)
+kbuildsycoca6 --noincremental 2>/dev/null || kbuildsycoca5 --noincremental 2>/dev/null || true
+xdg-desktop-menu forceupdate 2>/dev/null || true
 
 # ── Resultado ─────────────────────────────────────────────────────────────────
 if [[ $EXIT_CODE -eq 0 ]] && grep -q "SUCESSO" "$LOG_FILE" 2>/dev/null; then
