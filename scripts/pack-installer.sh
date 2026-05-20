@@ -241,10 +241,31 @@ if [[ "$HAS_ICON" == "true" ]]; then
   echo "OK"
 fi
 
-# Adiciona bloco de bytes nulos no final — editores de texto recusam abrir
-printf '\x00\x00\x00\x00\x00\x00\x00\x00' >> "$OUT"
-# Somente dono pode ler/executar (700)
-chmod 700 "$OUT"
+# ── Criptografa o instalador com openssl AES-256 ──────────────────────────────
+# Torna o conteúdo ilegível em qualquer editor
+PLAIN="$OUT"
+KEY=$(echo "${APPIMAGE_MD5}machctrl2024" | md5sum | cut -d' ' -f1)
+echo -n "  Criptografando... "
+
+# Gera wrapper: 8 linhas de cabeçalho + dados cifrados em base64 a partir da linha 9
+cat > "${PLAIN}.wrap" << WRAPEOF
+#!/bin/bash
+# MachCtrl v${VERSION} — Instalador
+# Arquivo protegido. Qualquer modificação invalida o instalador.
+_K=\$(echo "${APPIMAGE_MD5}machctrl2024" | md5sum | cut -d' ' -f1)
+_T=\$(mktemp /tmp/.mc.XXXXXX)
+trap 'rm -f "\$_T"' EXIT
+tail -n +9 "\$0" | openssl enc -d -aes-256-cbc -pbkdf2 -iter 100000 -a -pass "pass:\${_K}" -out "\$_T" 2>/dev/null || { echo "Arquivo corrompido ou modificado." >&2; exit 1; }
+chmod +x "\$_T" && exec bash "\$_T"; exit 0
+WRAPEOF
+
+# Cifra o instalador plaintext e appenda em base64 após o wrapper
+openssl enc -aes-256-cbc -pbkdf2 -iter 100000 -salt -a \
+  -pass "pass:${KEY}" -in "$PLAIN" >> "${PLAIN}.wrap" 2>/dev/null
+
+mv "${PLAIN}.wrap" "$PLAIN"
+chmod 700 "$PLAIN"
+echo "OK"
 SIZE=$(du -sh "$OUT" | cut -f1)
 MD5=$(md5sum "$OUT" | cut -d' ' -f1)
 
