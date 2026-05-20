@@ -270,11 +270,37 @@ echo "OK"
 SIZE=$(du -sh "$OUT" | cut -f1)
 MD5=$(md5sum "$OUT" | cut -d' ' -f1)
 
+# ── Gera .desktop com ícone para o gerenciador de arquivos ────────────────────
+DESKTOP_OUT="$(dirname "$OUT")/Instalar MachCtrl.desktop"
+ICON_DEST="$(dirname "$OUT")/.machctrl-installer-icon.png"
+
+# Extrai o ícone para a pasta do instalador
+[[ -f "$ICON" ]] && cp "$ICON" "$ICON_DEST"
+
+cat > "$DESKTOP_OUT" << DESKEOF
+[Desktop Entry]
+Name=Instalar MachCtrl
+Comment=MachCtrl v${VERSION} — Monitor de Hardware para Linux
+Exec=bash "$(realpath "$OUT")"
+Icon=${ICON_DEST}
+Terminal=false
+Type=Application
+Categories=System;
+StartupNotify=true
+DESKEOF
+chmod +x "$DESKTOP_OUT"
+
 echo ""
 echo "╔══════════════════════════════════════════════════════╗"
 echo "║  ✅  Instalador gerado com sucesso!                  ║"
 echo "╠══════════════════════════════════════════════════════╣"
-printf "║  Arquivo: %-42s║\n" "MachCtrl-Installer.sh"
-printf "║  Tamanho: %-42s║\n" "$SIZE"
-printf "║  MD5:     %-42s║\n" "$MD5"
+printf "║  Instalador: %-39s║\n" "MachCtrl-Installer.sh"
+printf "║  Atalho:     %-39s║\n" "Instalar MachCtrl.desktop"
+printf "║  Tamanho:    %-39s║\n" "$SIZE"
+printf "║  MD5:        %-39s║\n" "$MD5"
+echo "╠══════════════════════════════════════════════════════╣"
+echo "║  Distribua os dois arquivos juntos:                  ║"
+echo "║    • MachCtrl-Installer.sh                           ║"
+echo "║    • Instalar MachCtrl.desktop                       ║"
+echo "║  O usuário clica duas vezes no .desktop              ║"
 echo "╚══════════════════════════════════════════════════════╝"
