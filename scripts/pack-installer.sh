@@ -115,35 +115,36 @@ script += """
 ROOT_SCRIPT=$(mktemp /tmp/machctrl-root.XXXXXX.sh)
 chmod +x "$ROOT_SCRIPT"
 
-cat > "$ROOT_SCRIPT" << 'ROOTEOF'
+# Escreve o script root expandindo as variáveis corretamente
+cat > "$ROOT_SCRIPT" << ROOTEOF
 #!/bin/bash
-exec >> "$LOG_FILE" 2>&1
+exec >> "${LOG_FILE}" 2>&1
 set -euo pipefail
 
 echo "[1/5] Dependências..."
 for pkg in python python-psutil python-websockets lm_sensors dmidecode lshw fuse2 fuse3; do
-  pacman -Qi "$pkg" &>/dev/null || pacman -S --noconfirm --needed "$pkg" &>/dev/null || true
+  pacman -Qi "\$pkg" &>/dev/null || pacman -S --noconfirm --needed "\$pkg" &>/dev/null || true
 done
 python3 -c "import websockets" 2>/dev/null || pip install websockets --break-system-packages &>/dev/null || true
 
 echo "[2/5] Instalando arquivos..."
-mkdir -p "$INSTALL_DIR/backend"
-cp "$TMPDIR_INST/MachCtrl.AppImage" "$INSTALL_DIR/MachCtrl.AppImage"
-chmod +x "$INSTALL_DIR/MachCtrl.AppImage"
-cp "$TMPDIR_INST/machctrl_server.py" "$INSTALL_DIR/backend/machctrl_server.py"
-if [[ -f "$TMPDIR_INST/app-icon.png" ]]; then
-  install -Dm644 "$TMPDIR_INST/app-icon.png" /usr/share/pixmaps/machctrl.png
-  install -Dm644 "$TMPDIR_INST/app-icon.png" /usr/share/icons/hicolor/256x256/apps/machctrl.png
+mkdir -p "${INSTALL_DIR}/backend"
+cp "${TMPDIR_INST}/MachCtrl.AppImage" "${INSTALL_DIR}/MachCtrl.AppImage"
+chmod +x "${INSTALL_DIR}/MachCtrl.AppImage"
+cp "${TMPDIR_INST}/machctrl_server.py" "${INSTALL_DIR}/backend/machctrl_server.py"
+if [[ -f "${TMPDIR_INST}/app-icon.png" ]]; then
+  install -Dm644 "${TMPDIR_INST}/app-icon.png" /usr/share/pixmaps/machctrl.png
+  install -Dm644 "${TMPDIR_INST}/app-icon.png" /usr/share/icons/hicolor/256x256/apps/machctrl.png
   gtk-update-icon-cache /usr/share/icons/hicolor 2>/dev/null || true
 fi
 cat > /usr/local/bin/machctrl << 'LAUNCHEREOF'
 #!/bin/bash
-exec /opt/machctrl/MachCtrl.AppImage "$@"
+exec /opt/machctrl/MachCtrl.AppImage "\$@"
 LAUNCHEREOF
 chmod +x /usr/local/bin/machctrl
 
 echo "[3/5] Serviço systemd..."
-echo "$CURRENT_USER ALL=(ALL) NOPASSWD: /usr/sbin/dmidecode" > /etc/sudoers.d/machctrl
+echo "${CURRENT_USER} ALL=(ALL) NOPASSWD: /usr/sbin/dmidecode" > /etc/sudoers.d/machctrl
 chmod 440 /etc/sudoers.d/machctrl
 cat > /etc/systemd/system/machctrl-backend.service << 'SVCEOF'
 [Unit]
@@ -184,8 +185,8 @@ Keywords=hardware;cpu;gpu;ram;monitor;temperatura;
 StartupNotify=true
 DESKEOF
 update-desktop-database /usr/share/applications 2>/dev/null || true
-DBUS_ADDR=$(grep -z DBUS_SESSION_BUS_ADDRESS /proc/$(pgrep -u "$CURRENT_USER" | head -1)/environ 2>/dev/null | tr -d '\\0' | sed 's/DBUS_SESSION_BUS_ADDRESS=//' || true)
-sudo -u "$CURRENT_USER" env DBUS_SESSION_BUS_ADDRESS="$DBUS_ADDR" bash -c 'kbuildsycoca6 --noincremental 2>/dev/null || kbuildsycoca5 --noincremental 2>/dev/null || true' 2>/dev/null || true
+DBUS_ADDR=\$(grep -z DBUS_SESSION_BUS_ADDRESS /proc/\$(pgrep -u "${CURRENT_USER}" | head -1)/environ 2>/dev/null | tr -d '\\0' | sed 's/DBUS_SESSION_BUS_ADDRESS=//' || true)
+sudo -u "${CURRENT_USER}" env DBUS_SESSION_BUS_ADDRESS="\$DBUS_ADDR" bash -c 'kbuildsycoca6 --noincremental 2>/dev/null || kbuildsycoca5 --noincremental 2>/dev/null || true' 2>/dev/null || true
 echo "SUCESSO"
 ROOTEOF
 
