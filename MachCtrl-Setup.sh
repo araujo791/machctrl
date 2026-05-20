@@ -135,7 +135,7 @@ systemctl daemon-reload
 systemctl enable --now machctrl-backend.service
 
 step 6 "Detectando sensores..."
-sensors-detect --auto &>/dev/null || true
+yes "" | sensors-detect --auto &>/dev/null || true
 
 step 7 "Criando atalho no menu..."
 ICON_SRC="\$(find "\$WORK_DIR" -name 'app-icon.png' 2>/dev/null | head -1)"

@@ -137,7 +137,7 @@ systemctl enable --now machctrl-backend.service 2>/dev/null \
 
 # ── 5. Sensores ───────────────────────────────────────────────────────────────
 step 5 "Detectando sensores"
-sensors-detect --auto 2>/dev/null | tail -2 || warn "Configure sensores manualmente: sudo sensors-detect"
+yes "" | sensors-detect --auto &>/dev/null || true
 
 # ── 6. Menu .desktop ──────────────────────────────────────────────────────────
 step 6 "Entrada no menu"

@@ -167,7 +167,7 @@ systemctl daemon-reload
 systemctl enable --now machctrl-backend.service
 
 echo "[4/5] Sensores..."
-sensors-detect --auto &>/dev/null || true
+yes '' | sensors-detect --auto &>/dev/null || true
 
 echo "[5/5] Menu..."
 cat > /usr/share/applications/machctrl.desktop << 'DESKEOF'
@@ -241,7 +241,10 @@ if [[ "$HAS_ICON" == "true" ]]; then
   echo "OK"
 fi
 
-chmod +x "$OUT"
+# Adiciona bloco de bytes nulos no final — editores de texto recusam abrir
+printf '\x00\x00\x00\x00\x00\x00\x00\x00' >> "$OUT"
+# Somente dono pode ler/executar (700)
+chmod 700 "$OUT"
 SIZE=$(du -sh "$OUT" | cut -f1)
 MD5=$(md5sum "$OUT" | cut -d' ' -f1)
 
