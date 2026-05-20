@@ -44,18 +44,18 @@ CURRENT_USER="\${SUDO_USER:-\$(logname 2>/dev/null || whoami)}"
 if command -v kdialog &>/dev/null; then
   msg()        { kdialog --title "MachCtrl" --msgbox "\$1" 2>/dev/null || echo "\$1"; }
   yesno()      { kdialog --title "MachCtrl" --yesno "\$1" 2>/dev/null; }
-  busy_start() { kdialog --title "MachCtrl" --progressbar "Instalando MachCtrl \${APP_VERSION}..." 0 2>/dev/null & BUSY_PID=\$!; }
-  busy_stop()  { kill "\$BUSY_PID" 2>/dev/null || true; }
+  busy_start() { kdialog --title "MachCtrl" --passivepopup "Instalando MachCtrl \${APP_VERSION}... aguarde." 600 2>/dev/null & BUSY_PID=\$!; }
+  busy_stop()  { kill "\$BUSY_PID" 2>/dev/null || true; wait "\$BUSY_PID" 2>/dev/null || true; }
 elif command -v zenity &>/dev/null; then
   msg()        { zenity --info --title "MachCtrl" --text "\$1" --width 420 2>/dev/null || echo "\$1"; }
   yesno()      { zenity --question --title "MachCtrl" --text "\$1" --width 420 2>/dev/null; }
   busy_start() { zenity --progress --title "MachCtrl" --text "Instalando MachCtrl \${APP_VERSION}..." --pulsate --width 420 2>/dev/null & BUSY_PID=\$!; }
-  busy_stop()  { kill "\$BUSY_PID" 2>/dev/null || true; }
+  busy_stop()  { kill "\$BUSY_PID" 2>/dev/null || true; wait "\$BUSY_PID" 2>/dev/null || true; }
 elif command -v yad &>/dev/null; then
   msg()        { yad --title "MachCtrl" --text "\$1" --button=OK:0 --width 420 2>/dev/null || echo "\$1"; }
   yesno()      { yad --title "MachCtrl" --text "\$1" --button=Sim:0 --button="Não":1 --width 420 2>/dev/null; }
   busy_start() { yad --title "MachCtrl" --text "Instalando..." --progress --pulsate --width 420 2>/dev/null & BUSY_PID=\$!; }
-  busy_stop()  { kill "\$BUSY_PID" 2>/dev/null || true; }
+  busy_stop()  { kill "\$BUSY_PID" 2>/dev/null || true; wait "\$BUSY_PID" 2>/dev/null || true; }
 else
   msg()        { echo -e "\\n[MachCtrl] \$1\\n"; }
   yesno()      { read -rp "[MachCtrl] \$1 (s/N): " r; [[ "\$r" =~ ^[Ss]\$ ]]; }
@@ -203,6 +203,10 @@ busy_stop
 rm -f "$ROOT_SCRIPT"
 
 if [[ $EXIT_CODE -eq 0 ]] && grep -q "SUCESSO" "$LOG_FILE" 2>/dev/null; then
+  # Recarrega menu de apps no KDE/GNOME
+  kbuildsycoca6 --noincremental 2>/dev/null || \
+  kbuildsycoca5 --noincremental 2>/dev/null || true
+  xdg-desktop-menu forceupdate 2>/dev/null || true
   msg "✅  MachCtrl ${APP_VERSION} instalado com sucesso!\n\nAbra pelo menu de apps → MachCtrl\nou pelo terminal: machctrl"
 else
   msg "❌  Falha na instalação.\n\nLog: $LOG_FILE"
