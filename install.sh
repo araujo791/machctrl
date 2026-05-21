@@ -197,3 +197,9 @@ echo "  ║  systemctl status machctrl-backend           ║"
 echo "  ║  journalctl -u machctrl-backend -f           ║"
 echo "  ╚══════════════════════════════════════════════╝"
 echo -e "${C_RESET}"
+
+# ── Gera instalador distribuível ──────────────────────────────────────────────
+if [[ -f "$SCRIPT_DIR/scripts/pack-installer.sh" ]]; then
+  echo "Gerando MachCtrl-Installer.desktop..."
+  sudo -u "$CURRENT_USER" bash "$SCRIPT_DIR/scripts/pack-installer.sh"
+fi
