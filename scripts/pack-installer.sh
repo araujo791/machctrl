@@ -257,23 +257,43 @@ ICON_SYSTEM="/usr/share/pixmaps/machctrl-installer.png"
 ICON_LOCAL="$(dirname "$PLAIN")/.machctrl-icon.png"
 [[ -f "$ICON" ]] && cp "$ICON" "$ICON_LOCAL"
 
-# Gera wrapper .desktop — KDE/GNOME mostra ícone e executa ao clicar duas vezes
-# Marca __DATA_START__ no arquivo para o tail encontrar os dados cifrados
-cat > "${PLAIN}.wrap" << WRAPEOF
-[Desktop Entry]
-Name=Instalar MachCtrl ${VERSION}
+# Gera wrapper .desktop via Python para evitar problemas de escape/nounset
+python3 - "${PLAIN}.wrap" "${VERSION}" "${APPIMAGE_MD5}" "${ICON_LOCAL}" "${PLAIN}" << 'PYEOF'
+import sys
+out, ver, md5, icon, plain = sys.argv[1:]
+key_expr = f'$(echo "{md5}machctrl2024" | md5sum | cut -d" " -f1)'
+exec_cmd = (
+    f"bash -c '"
+    f'F=$(readlink -f "$0" 2>/dev/null); '
+    f'[ -z "$F" ] && F="{plain}"; '
+    f'K={key_expr}; '
+    f'T=$(mktemp /tmp/.mc.XXXXXX); '
+    f'trap \"rm -f $T\" EXIT; '
+    f'sed -n \"/^__DATA_START__$/,\$p\" "$F" | grep -v \"^__DATA_START__\" | '
+    f'openssl enc -d -aes-256-cbc -pbkdf2 -iter 100000 -a -pass "pass:${{K}}" -out "$T" 2>/dev/null '
+    f'&& chmod +x "$T" && bash "$T" '
+    f'|| (kdialog --title MachCtrl --error "Falha ao iniciar instalador." 2>/dev/null '
+    f'|| xmessage "Falha ao iniciar instalador.")'
+    f"'"
+)
+desktop = f"""[Desktop Entry]
+Name=Instalar MachCtrl {ver}
 Comment=Monitor de Hardware para Linux — Clique duas vezes para instalar
-Exec=bash -c 'F=\$(readlink -f "\$0" 2>/dev/null); [ -z "\$F" ] && F="${PLAIN}"; K=\$(echo "${APPIMAGE_MD5}machctrl2024" | md5sum | cut -d" " -f1); T=\$(mktemp /tmp/.mc.XXXXXX); trap "rm -f \$T" EXIT; sed -n "/^__DATA_START__$/,\\$p" "\$F" | grep -v "^__DATA_START__" | openssl enc -d -aes-256-cbc -pbkdf2 -iter 100000 -a -pass "pass:\${K}" -out "\$T" 2>/dev/null && chmod +x "\$T" && bash "\$T" || (kdialog --title MachCtrl --error "Falha ao iniciar instalador." 2>/dev/null || xmessage "Falha ao iniciar instalador.")'
-Icon=${ICON_LOCAL}
+Exec={exec_cmd}
+Icon={icon}
 Terminal=false
 Type=Application
 Categories=System;
 StartupNotify=true
 X-KDE-SubstituteVariables=false
-X-MachCtrl-Version=${VERSION}
-X-MachCtrl-MD5=${APPIMAGE_MD5}
+X-MachCtrl-Version={ver}
+X-MachCtrl-MD5={md5}
 __DATA_START__
-WRAPEOF
+"""
+with open(out, 'w') as f:
+    f.write(desktop)
+print("desktop OK")
+PYEOF
 
 # Cifra o instalador plaintext e appenda em base64 após o wrapper
 openssl enc -aes-256-cbc -pbkdf2 -iter 100000 -salt -a \
