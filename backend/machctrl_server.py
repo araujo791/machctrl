@@ -492,16 +492,16 @@ def get_network_info(prev_counters=None, prev_time=None):
 
 
 def get_power_watts():
-    """Lê consumo de energia via RAPL (powercap) com janela de 500ms para precisão."""
+    """Lê consumo de energia via múltiplas fontes: RAPL powercap, hwmon power, bateria."""
     try:
         import glob, time as _time
 
-        # Descobre todos os packages RAPL disponíveis
-        # Tenta caminhos comuns: intel-rapl:0, intel-rapl:1, etc
+        # ── Fonte 1: RAPL via powercap (Intel/AMD moderno) ────────────────────
         rapl_packages = []
         for pattern in [
             '/sys/class/powercap/intel-rapl:*/energy_uj',
             '/sys/class/powercap/intel-rapl-mmio:*/energy_uj',
+            '/sys/class/powercap/*/energy_uj',
         ]:
             for energy_f in sorted(glob.glob(pattern)):
                 d = os.path.dirname(energy_f)
@@ -510,18 +510,94 @@ def get_power_watts():
                     continue
                 with open(name_f) as f:
                     name = f.read().strip()
-                # Apenas pacotes principais, não sub-domínios (core, uncore, dram)
                 if name.startswith('package-'):
                     rapl_packages.append(energy_f)
 
-        if not rapl_packages:
-            # Fallback: bateria
-            for bat in glob.glob('/sys/class/power_supply/BAT*/'):
-                power_f = os.path.join(bat, 'power_now')
-                if os.path.exists(power_f):
-                    with open(power_f) as f:
-                        return round(int(f.read().strip()) / 1_000_000, 1)
-            return 0.0
+        if rapl_packages:
+            e_start = {}
+            for ef in rapl_packages:
+                try:
+                    with open(ef) as f:
+                        e_start[ef] = int(f.read().strip())
+                except Exception:
+                    pass
+            _time.sleep(0.5)
+            total_w = 0.0
+            for ef, e1 in e_start.items():
+                try:
+                    with open(ef) as f:
+                        e2 = int(f.read().strip())
+                    if e2 < e1:
+                        max_f = os.path.join(os.path.dirname(ef), 'max_energy_range_uj')
+                        max_e = int(open(max_f).read().strip()) if os.path.exists(max_f) else 2**32
+                        e2 += max_e
+                    total_w += (e2 - e1) / 500_000
+                except Exception:
+                    pass
+            if total_w > 0:
+                return round(total_w, 1)
+
+        # ── Fonte 2: hwmon power (nct6798, it87, etc) ─────────────────────────
+        # /sys/class/hwmon/hwmon*/power*_input  (em microwatts)
+        total_hw = 0.0
+        for power_f in glob.glob('/sys/class/hwmon/hwmon*/power*_input'):
+            try:
+                with open(power_f) as f:
+                    val = int(f.read().strip())
+                if val > 0:
+                    total_hw += val / 1_000_000  # µW → W
+            except Exception:
+                pass
+        if total_hw > 0:
+            return round(total_hw, 1)
+
+        # ── Fonte 3: lm-sensors via psutil (fallback) ─────────────────────────
+        try:
+            import psutil as _ps
+            temps = _ps.sensors_battery()
+            if temps and hasattr(temps, 'power_plugged'):
+                pass  # sem info de watts
+        except Exception:
+            pass
+
+        # ── Fonte 4: bateria ──────────────────────────────────────────────────
+        for bat in glob.glob('/sys/class/power_supply/BAT*/'):
+            power_f = os.path.join(bat, 'power_now')
+            if os.path.exists(power_f):
+                with open(power_f) as f:
+                    val = int(f.read().strip())
+                if val > 0:
+                    return round(val / 1_000_000, 1)
+
+        # ── Fonte 5: estimativa via CPU (fallback grosseiro) ──────────────────
+        # Usa TDP dos sockets × uso médio como estimativa
+        try:
+            import psutil as _ps
+            cpu_pct = _ps.cpu_percent(interval=0.2)
+            # Detecta número de sockets físicos
+            socket_count = 1
+            try:
+                with open('/proc/cpuinfo') as f:
+                    ids = set()
+                    for line in f:
+                        if line.startswith('physical id'):
+                            ids.add(line.split(':')[1].strip())
+                    if ids:
+                        socket_count = len(ids)
+            except Exception:
+                pass
+            # TDP padrão conservador por socket (Xeon E5 v4 = 120W TDP)
+            tdp_per_socket = 120
+            estimated = (cpu_pct / 100) * tdp_per_socket * socket_count
+            if estimated > 0:
+                return round(estimated, 1)
+        except Exception:
+            pass
+
+    except Exception as e:
+        print(f"[POWER] erro: {e}", flush=True)
+    return 0.0
+
 
         # Lê energia inicial de todos os packages
         e_start = {}
