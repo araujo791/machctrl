@@ -34,7 +34,7 @@ fi
 
 # ── 1. Dependências ───────────────────────────────────────────────────────────
 step 1 "Instalando dependências do sistema"
-for pkg in python python-psutil python-websockets lm_sensors dmidecode lshw nodejs npm fuse2 fuse3; do
+for pkg in python python-psutil python-websockets lm_sensors dmidecode nodejs npm fuse2 fuse3; do
   if pacman -Qi "$pkg" &>/dev/null; then
     ok "$pkg"
   else

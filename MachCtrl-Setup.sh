@@ -74,7 +74,7 @@ REPO_URL="$REPO_URL"
 step() { echo "[\$1/7] \$2"; }
 
 step 1 "Instalando dependências..."
-DEPS=(git python python-psutil python-websockets lm_sensors dmidecode lshw nodejs npm fuse2 fuse3)
+DEPS=(git python python-psutil python-websockets lm_sensors dmidecode nodejs npm fuse2 fuse3)
 for pkg in "\${DEPS[@]}"; do
   pacman -Qi "\$pkg" &>/dev/null || pacman -S --noconfirm --needed "\$pkg" &>/dev/null || true
 done

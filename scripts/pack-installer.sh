@@ -122,7 +122,7 @@ exec >> "${LOG_FILE}" 2>&1
 set -euo pipefail
 
 echo "[1/5] Dependências..."
-for pkg in python python-psutil python-websockets lm_sensors dmidecode lshw fuse2 fuse3; do
+for pkg in python python-psutil python-websockets lm_sensors dmidecode fuse2 fuse3; do
   pacman -Qi "\$pkg" &>/dev/null || pacman -S --noconfirm --needed "\$pkg" &>/dev/null || true
 done
 python3 -c "import websockets" 2>/dev/null || pip install websockets --break-system-packages &>/dev/null || true
