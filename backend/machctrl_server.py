@@ -491,6 +491,49 @@ def get_network_info(prev_counters=None, prev_time=None):
         return {"adapters": [], "_io_snapshot": None, "_time": time.time()}
 
 
+def get_power_watts():
+    """Lê consumo de energia via RAPL (powercap) ou bateria."""
+    try:
+        import glob, time
+        # Intel/AMD RAPL via powercap
+        rapl_dirs = sorted(glob.glob('/sys/class/powercap/intel-rapl:*/'))
+        if not rapl_dirs:
+            rapl_dirs = sorted(glob.glob('/sys/class/powercap/*/'))
+        total_uw = 0
+        for d in rapl_dirs:
+            name_f = os.path.join(d, 'name')
+            energy_f = os.path.join(d, 'energy_uj')
+            if not os.path.exists(name_f) or not os.path.exists(energy_f):
+                continue
+            with open(name_f) as f:
+                name = f.read().strip()
+            # Soma apenas pacotes principais (package-0, package-1, etc)
+            if 'package' not in name:
+                continue
+            with open(energy_f) as f:
+                e1 = int(f.read().strip())
+            time.sleep(0.05)
+            with open(energy_f) as f:
+                e2 = int(f.read().strip())
+            # Lida com rollover
+            if e2 < e1:
+                max_f = os.path.join(d, 'max_energy_range_uj')
+                max_e = int(open(max_f).read().strip()) if os.path.exists(max_f) else 2**32
+                e2 += max_e
+            total_uw += (e2 - e1) / 0.05  # uW
+        if total_uw > 0:
+            return round(total_uw / 1_000_000, 1)  # W
+        # Fallback: bateria (discharge rate)
+        for bat in glob.glob('/sys/class/power_supply/BAT*/'):
+            power_f = os.path.join(bat, 'power_now')
+            if os.path.exists(power_f):
+                with open(power_f) as f:
+                    return round(int(f.read().strip()) / 1_000_000, 1)
+    except Exception:
+        pass
+    return 0.0
+
+
 def get_gpu_name():
     """Detecta o nome da GPU via lspci."""
     try:
@@ -1479,6 +1522,7 @@ class SensorServer:
             "pwm_names": list(self.pwm_controls.keys()),
             "fan_map": self.fan_index_map,
             "gpu": get_gpu_info(),
+            "power_watts": get_power_watts(),
             "network": net_result,
         }
 

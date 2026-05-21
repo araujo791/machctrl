@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld('electron', {
   openExternal:   (url) => ipcRenderer.invoke('open-external', url),
   setAutostart:   (enable) => ipcRenderer.invoke('set-autostart', enable),
   onBackendStatus:(cb) => ipcRenderer.on('backend-status', (_, v) => cb(v)),
+  onWindowState:  (cb) => ipcRenderer.on('window-state', (_, v) => cb(v)),
   // Lê arquivo local para wallpaper (base64)
   readFileB64: (filePath) => {
     try {

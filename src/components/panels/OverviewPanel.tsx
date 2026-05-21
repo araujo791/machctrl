@@ -66,14 +66,15 @@ function Row({ label, value, color }: { label: string; value: string; color?: st
 }
 
 export function OverviewPanel({ data, cpuHistory }: OverviewProps) {
-  const sys      = (data as any).system ?? {}
-  const cpu      = data.cpu
-  const mem      = data.memory
-  const disks    = normalizeDisks(data)
-  const procs    = (data as any).top_processes ?? []
-  const cpuTemps = data.cpus_temps ?? []
-  const gpu      = (data as any).gpu ?? {}
-  const network  = (data as any).network ?? { adapters: [] }
+  const sys        = (data as any).system ?? {}
+  const cpu        = data.cpu
+  const mem        = data.memory
+  const disks      = normalizeDisks(data)
+  const procs      = (data as any).top_processes ?? []
+  const cpuTemps   = data.cpus_temps ?? []
+  const gpu        = (data as any).gpu ?? {}
+  const network    = (data as any).network ?? { adapters: [] }
+  const powerWatts = (data as any).power_watts ?? 0
 
   const gpuTemp   = gpu.temp ?? (data.temperatures as any)?.gpu ?? 0
   const gpuName   = gpu.model || sys.gpu_name || ''
@@ -100,8 +101,26 @@ export function OverviewPanel({ data, cpuHistory }: OverviewProps) {
       {/* ── Row 1: Info Sistema ── */}
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 20, flexWrap: 'wrap' }}>
         <div style={{ flex: 1, minWidth: 260 }}>
-          <div style={{ fontSize: 22, fontWeight: 800, color: 'hsl(var(--text))', letterSpacing: '-0.02em', lineHeight: 1.1, marginBottom: 4 }}>
-            {sys.board || sys.hostname || 'Sistema'}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 4 }}>
+            <div style={{ fontSize: 22, fontWeight: 800, color: 'hsl(var(--text))', letterSpacing: '-0.02em', lineHeight: 1.1 }}>
+              {sys.board || sys.hostname || 'Sistema'}
+            </div>
+            {powerWatts > 0 && (
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 5,
+                padding: '3px 10px', borderRadius: 8,
+                background: powerWatts > 150 ? 'hsl(var(--red) / 0.12)' : powerWatts > 80 ? 'hsl(var(--orange) / 0.12)' : 'hsl(var(--green) / 0.12)',
+                border: `1px solid ${powerWatts > 150 ? 'hsl(var(--red) / 0.3)' : powerWatts > 80 ? 'hsl(var(--orange) / 0.3)' : 'hsl(var(--green) / 0.3)'}`,
+              }}>
+                <span style={{ fontSize: 13 }}>⚡</span>
+                <span style={{
+                  fontSize: 15, fontWeight: 800, fontFamily: 'JetBrains Mono',
+                  color: powerWatts > 150 ? 'hsl(var(--red))' : powerWatts > 80 ? 'hsl(var(--orange))' : 'hsl(var(--green))',
+                }}>
+                  {powerWatts} W
+                </span>
+              </div>
+            )}
           </div>
           <div style={{ fontSize: 12, color: 'hsl(var(--muted))', marginBottom: 12 }}>
             {sys.os} · Kernel {sys.kernel}

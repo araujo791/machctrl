@@ -14,6 +14,11 @@ export function Titlebar({ connected = false, theme, onToggleTheme }: TitlebarPr
 
   useEffect(() => {
     window.electron?.isMaximized().then(v => setIsMaximized(v ?? false)).catch(() => {})
+    // Ouve eventos de estado da janela vindos do main process
+    window.electron?.onWindowState?.((state: string) => {
+      if (state === 'maximized') setIsMaximized(true)
+      if (state === 'normal')    setIsMaximized(false)
+    })
   }, [])
 
   const handleMinimize = () => {

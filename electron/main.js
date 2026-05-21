@@ -103,6 +103,10 @@ function createWindow() {
     },
   })
 
+  // Notifica o frontend sobre mudanças de estado da janela
+  mainWindow.on('maximize',   () => mainWindow?.webContents.send('window-state', 'maximized'))
+  mainWindow.on('unmaximize', () => mainWindow?.webContents.send('window-state', 'normal'))
+
   Menu.setApplicationMenu(null)
 
   if (isDev) {
@@ -151,6 +155,8 @@ ipcMain.handle('set-autostart', (_, enable) => {
 
 // ─── Lifecycle ───────────────────────────────────────────────────────────────
 app.commandLine.appendSwitch('disable-features', 'BlockInsecurePrivateNetworkRequests')
+app.commandLine.appendSwitch('ozone-platform-hint', 'auto')
+app.commandLine.appendSwitch('enable-features', 'WaylandWindowDecorations')
 app.commandLine.appendSwitch('disable-gpu-vsync')
 app.commandLine.appendSwitch('disable-software-rasterizer')
 app.commandLine.appendSwitch('ignore-gpu-blocklist')
