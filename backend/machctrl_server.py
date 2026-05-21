@@ -492,46 +492,70 @@ def get_network_info(prev_counters=None, prev_time=None):
 
 
 def get_power_watts():
-    """Lê consumo de energia via RAPL (powercap) ou bateria."""
+    """Lê consumo de energia via RAPL (powercap) com janela de 500ms para precisão."""
     try:
-        import glob, time
-        # Intel/AMD RAPL via powercap
-        rapl_dirs = sorted(glob.glob('/sys/class/powercap/intel-rapl:*/'))
-        if not rapl_dirs:
-            rapl_dirs = sorted(glob.glob('/sys/class/powercap/*/'))
-        total_uw = 0
-        for d in rapl_dirs:
-            name_f = os.path.join(d, 'name')
-            energy_f = os.path.join(d, 'energy_uj')
-            if not os.path.exists(name_f) or not os.path.exists(energy_f):
-                continue
-            with open(name_f) as f:
-                name = f.read().strip()
-            # Soma apenas pacotes principais (package-0, package-1, etc)
-            if 'package' not in name:
-                continue
-            with open(energy_f) as f:
-                e1 = int(f.read().strip())
-            time.sleep(0.05)
-            with open(energy_f) as f:
-                e2 = int(f.read().strip())
-            # Lida com rollover
-            if e2 < e1:
-                max_f = os.path.join(d, 'max_energy_range_uj')
-                max_e = int(open(max_f).read().strip()) if os.path.exists(max_f) else 2**32
-                e2 += max_e
-            total_uw += (e2 - e1) / 0.05  # uW
-        if total_uw > 0:
-            return round(total_uw / 1_000_000, 1)  # W
-        # Fallback: bateria (discharge rate)
-        for bat in glob.glob('/sys/class/power_supply/BAT*/'):
-            power_f = os.path.join(bat, 'power_now')
-            if os.path.exists(power_f):
-                with open(power_f) as f:
-                    return round(int(f.read().strip()) / 1_000_000, 1)
-    except Exception:
-        pass
-    return 0.0
+        import glob, time as _time
+
+        # Descobre todos os packages RAPL disponíveis
+        # Tenta caminhos comuns: intel-rapl:0, intel-rapl:1, etc
+        rapl_packages = []
+        for pattern in [
+            '/sys/class/powercap/intel-rapl:*/energy_uj',
+            '/sys/class/powercap/intel-rapl-mmio:*/energy_uj',
+        ]:
+            for energy_f in sorted(glob.glob(pattern)):
+                d = os.path.dirname(energy_f)
+                name_f = os.path.join(d, 'name')
+                if not os.path.exists(name_f):
+                    continue
+                with open(name_f) as f:
+                    name = f.read().strip()
+                # Apenas pacotes principais, não sub-domínios (core, uncore, dram)
+                if name.startswith('package-'):
+                    rapl_packages.append(energy_f)
+
+        if not rapl_packages:
+            # Fallback: bateria
+            for bat in glob.glob('/sys/class/power_supply/BAT*/'):
+                power_f = os.path.join(bat, 'power_now')
+                if os.path.exists(power_f):
+                    with open(power_f) as f:
+                        return round(int(f.read().strip()) / 1_000_000, 1)
+            return 0.0
+
+        # Lê energia inicial de todos os packages
+        e_start = {}
+        for ef in rapl_packages:
+            try:
+                with open(ef) as f:
+                    e_start[ef] = int(f.read().strip())
+            except Exception:
+                pass
+
+        # Janela de 500ms para precisão (especialmente importante em baixo consumo)
+        _time.sleep(0.5)
+
+        # Lê energia final e calcula watts
+        total_w = 0.0
+        for ef, e1 in e_start.items():
+            try:
+                with open(ef) as f:
+                    e2 = int(f.read().strip())
+                # Lida com rollover do contador
+                if e2 < e1:
+                    max_f = os.path.join(os.path.dirname(ef), 'max_energy_range_uj')
+                    max_e = int(open(max_f).read().strip()) if os.path.exists(max_f) else 2**32
+                    e2 += max_e
+                delta_uj = e2 - e1
+                total_w += delta_uj / 500_000  # uJ / 500ms = W
+            except Exception:
+                pass
+
+        return round(total_w, 1) if total_w > 0 else 0.0
+
+    except Exception as e:
+        print(f"[POWER] erro: {e}", flush=True)
+        return 0.0
 
 
 def get_gpu_name():
