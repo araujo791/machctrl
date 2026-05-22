@@ -9,11 +9,6 @@ const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged
 let mainWindow  = null
 let backendProcess = null
 
-// Getter para sempre pegar a janela atual
-function getWin() {
-  return BrowserWindow.getAllWindows()[0] ?? null
-}
-
 // Log silencioso — não escreve em nada (evita EIO no AppImage)
 const log = {
   info:  () => {},
@@ -103,9 +98,6 @@ function createWindow() {
     },
   })
 
-  // Notifica o frontend sobre mudanças de estado da janela
-  mainWindow.on('maximize',   () => mainWindow?.webContents.send('window-state', 'maximized'))
-  mainWindow.on('unmaximize', () => mainWindow?.webContents.send('window-state', 'normal'))
 
   Menu.setApplicationMenu(null)
 

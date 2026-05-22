@@ -92,11 +92,7 @@ ok "Backend → $INSTALL_DIR/backend/machctrl_server.py"
 # Launcher
 cat > /usr/local/bin/machctrl << 'LAUNCHER'
 #!/bin/bash
-# Força XWayland para compatibilidade com frame: false
-export ELECTRON_OZONE_PLATFORM_HINT=x11
-export GDK_BACKEND=x11
-export QT_QPA_PLATFORM=xcb
-exec /opt/machctrl/MachCtrl.AppImage --no-sandbox "$@"
+exec /opt/machctrl/MachCtrl.AppImage "$@"
 LAUNCHER
 chmod +x /usr/local/bin/machctrl
 ok "Launcher → /usr/local/bin/machctrl"
@@ -156,7 +152,7 @@ cat > /usr/share/applications/machctrl.desktop << 'DESKTOP'
 Name=MachCtrl
 GenericName=Monitor de Hardware
 Comment=Monitor e Otimizador de Hardware para Linux
-Exec=env ELECTRON_OZONE_PLATFORM_HINT=x11 GDK_BACKEND=x11 /usr/local/bin/machctrl
+Exec=/usr/local/bin/machctrl
 Icon=machctrl
 Terminal=false
 Type=Application
