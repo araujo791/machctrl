@@ -599,40 +599,6 @@ def get_power_watts():
     return 0.0
 
 
-        # Lê energia inicial de todos os packages
-        e_start = {}
-        for ef in rapl_packages:
-            try:
-                with open(ef) as f:
-                    e_start[ef] = int(f.read().strip())
-            except Exception:
-                pass
-
-        # Janela de 500ms para precisão (especialmente importante em baixo consumo)
-        _time.sleep(0.5)
-
-        # Lê energia final e calcula watts
-        total_w = 0.0
-        for ef, e1 in e_start.items():
-            try:
-                with open(ef) as f:
-                    e2 = int(f.read().strip())
-                # Lida com rollover do contador
-                if e2 < e1:
-                    max_f = os.path.join(os.path.dirname(ef), 'max_energy_range_uj')
-                    max_e = int(open(max_f).read().strip()) if os.path.exists(max_f) else 2**32
-                    e2 += max_e
-                delta_uj = e2 - e1
-                total_w += delta_uj / 500_000  # uJ / 500ms = W
-            except Exception:
-                pass
-
-        return round(total_w, 1) if total_w > 0 else 0.0
-
-    except Exception as e:
-        print(f"[POWER] erro: {e}", flush=True)
-        return 0.0
-
 
 def get_gpu_name():
     """Detecta o nome da GPU via lspci."""
