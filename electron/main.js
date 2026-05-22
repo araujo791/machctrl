@@ -119,9 +119,9 @@ function createWindow() {
 }
 
 // ─── IPC ─────────────────────────────────────────────────────────────────────
-ipcMain.handle('window-minimize',     () => { const w = getWin(); if(w) w.minimize() })
-ipcMain.handle('window-maximize',     () => { const w = getWin(); if(w) { if(w.isMaximized()) w.unmaximize(); else w.maximize() } })
-ipcMain.handle('window-close',        () => { const w = getWin(); if(w) w.close() })
+ipcMain.on('window-minimize', () => { const w = getWin(); if(w) w.minimize() })
+ipcMain.on('window-maximize', () => { const w = getWin(); if(w) { if(w.isMaximized()) w.unmaximize(); else w.maximize() } })
+ipcMain.on('window-close',    () => { const w = getWin(); if(w) w.close() })
 ipcMain.handle('window-is-maximized', () => { const w = getWin(); return w ? w.isMaximized() : false })
 ipcMain.handle('get-platform',        () => ({ platform: process.platform, arch: process.arch, hostname: os.hostname(), release: os.release() }))
 ipcMain.handle('open-external',       (_, url) => shell.openExternal(url))
