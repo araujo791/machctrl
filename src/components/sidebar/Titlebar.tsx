@@ -100,8 +100,7 @@ function WinBtn({ onClick, hoverColor, children }: {
   const [hovered, setHovered] = useState(false)
   return (
     <button
-      onPointerDown={(e) => { e.stopPropagation() }}
-      onClick={(e) => { e.stopPropagation(); onClick() }}
+      onClick={onClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
