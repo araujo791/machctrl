@@ -581,6 +581,121 @@ def get_power_watts():
 
 
 
+def run_clean_task(task_id: str) -> dict:
+    """Executa tarefa de limpeza real e retorna bytes liberados."""
+    import subprocess, shutil, glob, os
+
+    def du(path):
+        """Retorna tamanho em bytes de um path."""
+        try:
+            r = subprocess.run(['du', '-sb', path], capture_output=True, text=True)
+            return int(r.stdout.split()[0]) if r.returncode == 0 else 0
+        except Exception:
+            return 0
+
+    def fmt(b):
+        if b <= 0: return "0 B"
+        if b >= 1_073_741_824: return f"{b/1_073_741_824:.2f} GB"
+        if b >= 1_048_576:     return f"{b/1_048_576:.1f} MB"
+        if b >= 1024:          return f"{b/1024:.0f} KB"
+        return f"{b} B"
+
+    try:
+        if task_id == "pacman-cache":
+            before = du("/var/cache/pacman/pkg")
+            subprocess.run(["paccache", "-rk1"], capture_output=True)
+            subprocess.run(["paccache", "-ruk0"], capture_output=True)
+            after = du("/var/cache/pacman/pkg")
+            freed = max(0, before - after)
+            return {"success": True, "result": "Cache limpo (mantidas 1 versão)", "cleaned": fmt(freed), "bytes": freed}
+
+        elif task_id == "pacman-orphans":
+            r = subprocess.run(["pacman", "-Qdtq"], capture_output=True, text=True)
+            orphans = [p.strip() for p in r.stdout.strip().splitlines() if p.strip()]
+            if not orphans:
+                return {"success": True, "result": "Nenhum órfão encontrado", "cleaned": "0 pacotes", "bytes": 0}
+            subprocess.run(["pacman", "-Rns", "--noconfirm"] + orphans, capture_output=True)
+            return {"success": True, "result": f"{len(orphans)} pacote(s) removido(s)", "cleaned": f"{len(orphans)} pacotes", "bytes": 0}
+
+        elif task_id == "journal-logs":
+            before = du("/var/log/journal")
+            subprocess.run(["journalctl", "--vacuum-time=7d"], capture_output=True)
+            after = du("/var/log/journal")
+            freed = max(0, before - after)
+            return {"success": True, "result": "Logs compactados (7 dias mantidos)", "cleaned": fmt(freed), "bytes": freed}
+
+        elif task_id == "temp-files":
+            freed = 0
+            count = 0
+            for pattern in ["/tmp/*", "/var/tmp/*"]:
+                for f in glob.glob(pattern):
+                    try:
+                        size = os.path.getsize(f) if os.path.isfile(f) else du(f)
+                        if os.path.isfile(f): os.remove(f)
+                        elif os.path.isdir(f): shutil.rmtree(f, ignore_errors=True)
+                        freed += size
+                        count += 1
+                    except Exception:
+                        pass
+            return {"success": True, "result": f"{count} itens removidos", "cleaned": fmt(freed), "bytes": freed}
+
+        elif task_id == "thumb-cache":
+            paths = glob.glob(os.path.expanduser("~/.cache/thumbnails/**"), recursive=True)
+            freed = sum(os.path.getsize(f) for f in paths if os.path.isfile(f))
+            shutil.rmtree(os.path.expanduser("~/.cache/thumbnails"), ignore_errors=True)
+            return {"success": True, "result": "Miniaturas removidas", "cleaned": fmt(freed), "bytes": freed}
+
+        elif task_id == "coredumps":
+            freed = 0
+            count = 0
+            for pattern in ["/var/lib/systemd/coredump/*", "/tmp/core*"]:
+                for f in glob.glob(pattern):
+                    try:
+                        freed += os.path.getsize(f)
+                        os.remove(f)
+                        count += 1
+                    except Exception:
+                        pass
+            subprocess.run(["coredumpctl", "clean"], capture_output=True)
+            return {"success": True, "result": f"{count} core dump(s) removido(s)", "cleaned": fmt(freed), "bytes": freed}
+
+        elif task_id == "pip-cache":
+            cache_dir = os.path.expanduser("~/.cache/pip")
+            freed = du(cache_dir)
+            shutil.rmtree(cache_dir, ignore_errors=True)
+            subprocess.run(["pip", "cache", "purge"], capture_output=True)
+            return {"success": True, "result": "Cache pip limpo", "cleaned": fmt(freed), "bytes": freed}
+
+        elif task_id == "npm-cache":
+            cache_dir = os.path.expanduser("~/.npm")
+            freed = du(cache_dir)
+            subprocess.run(["npm", "cache", "clean", "--force"], capture_output=True)
+            return {"success": True, "result": "Cache npm limpo", "cleaned": fmt(freed), "bytes": freed}
+
+        elif task_id == "trash":
+            freed = 0
+            for trash_dir in [
+                os.path.expanduser("~/.local/share/Trash/files"),
+                os.path.expanduser("~/.local/share/Trash/info"),
+                "/root/.local/share/Trash/files",
+            ]:
+                if os.path.exists(trash_dir):
+                    freed += du(trash_dir)
+                    for f in glob.glob(os.path.join(trash_dir, "*")):
+                        try:
+                            if os.path.isfile(f) or os.path.islink(f): os.remove(f)
+                            elif os.path.isdir(f): shutil.rmtree(f, ignore_errors=True)
+                        except Exception:
+                            pass
+            return {"success": True, "result": "Lixeira esvaziada", "cleaned": fmt(freed), "bytes": freed}
+
+        else:
+            return {"success": False, "result": f"Tarefa desconhecida: {task_id}", "cleaned": "—", "bytes": 0}
+
+    except Exception as e:
+        return {"success": False, "result": f"Erro: {str(e)}", "cleaned": "—", "bytes": 0}
+
+
 def get_gpu_name():
     """Detecta o nome da GPU via lspci."""
     try:
@@ -1670,6 +1785,15 @@ class SensorServer:
                     "type": "error",
                     "message": f"Fan '{fan_key}' não encontrado. fan_index_map={self.fan_index_map}"
                 }))
+
+        elif action == "run_clean_task":
+            task_id = cmd.get("task_id", "")
+            result  = await asyncio.get_event_loop().run_in_executor(None, run_clean_task, task_id)
+            await websocket.send(json.dumps({
+                "type": "clean_task_result",
+                "task_id": task_id,
+                **result,
+            }))
 
         elif action == "set_fan_auto":
             fan_key = cmd.get("fan", "")
