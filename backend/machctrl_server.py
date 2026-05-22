@@ -537,30 +537,7 @@ def get_power_watts():
             if total_w > 0:
                 return round(total_w, 1)
 
-        # ── Fonte 2: hwmon power (nct6798, it87, etc) ─────────────────────────
-        # /sys/class/hwmon/hwmon*/power*_input  (em microwatts)
-        total_hw = 0.0
-        for power_f in glob.glob('/sys/class/hwmon/hwmon*/power*_input'):
-            try:
-                with open(power_f) as f:
-                    val = int(f.read().strip())
-                if val > 0:
-                    total_hw += val / 1_000_000  # µW → W
-            except Exception:
-                pass
-        if total_hw > 0:
-            return round(total_hw, 1)
-
-        # ── Fonte 3: lm-sensors via psutil (fallback) ─────────────────────────
-        try:
-            import psutil as _ps
-            temps = _ps.sensors_battery()
-            if temps and hasattr(temps, 'power_plugged'):
-                pass  # sem info de watts
-        except Exception:
-            pass
-
-        # ── Fonte 4: bateria ──────────────────────────────────────────────────
+        # ── Fonte 2: bateria ──────────────────────────────────────────────────
         for bat in glob.glob('/sys/class/power_supply/BAT*/'):
             power_f = os.path.join(bat, 'power_now')
             if os.path.exists(power_f):
@@ -569,26 +546,30 @@ def get_power_watts():
                 if val > 0:
                     return round(val / 1_000_000, 1)
 
-        # ── Fonte 5: estimativa via CPU (fallback grosseiro) ──────────────────
-        # Usa TDP dos sockets × uso médio como estimativa
+        # ── Fonte 3: estimativa via TDP × uso CPU ─────────────────────────────
+        # Usado quando RAPL não disponível (servidores Xeon, VMs, etc)
         try:
             import psutil as _ps
-            cpu_pct = _ps.cpu_percent(interval=0.2)
-            # Detecta número de sockets físicos
-            socket_count = 1
+            cpu_pct = _ps.cpu_percent(interval=0.5)
+            # Detecta número de sockets físicos via /proc/cpuinfo
+            socket_ids = set()
+            tdp_hint = 120  # default
             try:
                 with open('/proc/cpuinfo') as f:
-                    ids = set()
                     for line in f:
                         if line.startswith('physical id'):
-                            ids.add(line.split(':')[1].strip())
-                    if ids:
-                        socket_count = len(ids)
+                            socket_ids.add(line.split(':')[1].strip())
+                        # Tenta detectar TDP pelo modelo (Xeon E5 v4 = 120W, v3 = 135W)
+                        if 'model name' in line and 'E5-2680' in line:
+                            tdp_hint = 120
+                        elif 'model name' in line and 'E5-2699' in line:
+                            tdp_hint = 145
             except Exception:
                 pass
-            # TDP padrão conservador por socket (Xeon E5 v4 = 120W TDP)
-            tdp_per_socket = 120
-            estimated = (cpu_pct / 100) * tdp_per_socket * socket_count
+            socket_count = len(socket_ids) if socket_ids else 1
+            # idle_floor: mesmo idle o sistema consome ~15W por socket
+            idle_floor = 15 * socket_count
+            estimated = idle_floor + (cpu_pct / 100) * tdp_hint * socket_count
             if estimated > 0:
                 return round(estimated, 1)
         except Exception:
