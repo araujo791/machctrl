@@ -1569,9 +1569,39 @@ class SensorServer:
             "pwm_names": list(self.pwm_controls.keys()),
             "fan_map": self.fan_index_map,
             "gpu": get_gpu_info(),
-            "power_watts": get_power_watts(),
+            "power_watts": self._estimate_power_watts(),
             "network": net_result,
         }
+
+    def _estimate_power_watts(self):
+        """Estima consumo via TDP x uso. Usado quando RAPL não disponível."""
+        try:
+            import psutil as _ps
+            # Detecta sockets e TDP via cpuinfo
+            socket_ids = set()
+            tdp_per_socket = 120  # default conservador
+            with open('/proc/cpuinfo') as f:
+                for line in f:
+                    if line.startswith('physical id'):
+                        socket_ids.add(line.split(':')[1].strip())
+                    if 'model name' in line:
+                        m = line.lower()
+                        if 'e5-2699' in m: tdp_per_socket = 145
+                        elif 'e5-2698' in m: tdp_per_socket = 135
+                        elif 'e5-2697' in m: tdp_per_socket = 130
+                        elif 'e5-2680' in m: tdp_per_socket = 120
+                        elif 'e5-2678' in m: tdp_per_socket = 120
+                        elif 'e5-2670' in m: tdp_per_socket = 115
+                        elif 'e5-2650' in m: tdp_per_socket = 105
+                        elif 'e7-' in m:     tdp_per_socket = 150
+            socket_count = max(len(socket_ids), 1)
+            cpu_pct = _ps.cpu_percent()
+            # floor: consumo idle (~15W por socket de plataforma + ~10W base)
+            idle_floor = (10 + 15 * socket_count)
+            dynamic    = (cpu_pct / 100.0) * tdp_per_socket * socket_count
+            return round(idle_floor + dynamic, 1)
+        except Exception:
+            return 0.0
 
     async def handler(self, websocket):
         self.clients.add(websocket)
