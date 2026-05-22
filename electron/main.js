@@ -119,10 +119,10 @@ function createWindow() {
 }
 
 // ─── IPC ─────────────────────────────────────────────────────────────────────
-ipcMain.handle('window-minimize', () => { const w = getWin(); if(w) w.minimize() })
-ipcMain.handle('window-maximize', () => { const w = getWin(); if(w) { if(w.isMaximized()) w.unmaximize(); else w.maximize() } })
-ipcMain.handle('window-close',    () => { const w = getWin(); if(w) w.close() })
-ipcMain.handle('window-is-maximized', () => { const w = getWin(); return w ? w.isMaximized() : false })
+ipcMain.handle('window-minimize',     () => mainWindow?.minimize())
+ipcMain.handle('window-maximize',     () => { mainWindow?.isMaximized() ? mainWindow.unmaximize() : mainWindow?.maximize() })
+ipcMain.handle('window-close',        () => mainWindow?.close())
+ipcMain.handle('window-is-maximized', () => mainWindow?.isMaximized() ?? false)
 ipcMain.handle('get-platform',        () => ({ platform: process.platform, arch: process.arch, hostname: os.hostname(), release: os.release() }))
 ipcMain.handle('open-external',       (_, url) => shell.openExternal(url))
 
@@ -155,12 +155,6 @@ ipcMain.handle('set-autostart', (_, enable) => {
 
 // ─── Lifecycle ───────────────────────────────────────────────────────────────
 app.commandLine.appendSwitch('disable-features', 'BlockInsecurePrivateNetworkRequests')
-app.commandLine.appendSwitch('ozone-platform-hint', 'auto')
-app.commandLine.appendSwitch('enable-features', 'WaylandWindowDecorations')
-app.commandLine.appendSwitch('disable-gpu-vsync')
-app.commandLine.appendSwitch('disable-software-rasterizer')
-app.commandLine.appendSwitch('ignore-gpu-blocklist')
-app.commandLine.appendSwitch('log-level', '3')  // suprimir warnings do Chromium
 
 app.whenReady().then(async () => {
   await startBackend()
