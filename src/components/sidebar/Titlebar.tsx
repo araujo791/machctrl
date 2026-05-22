@@ -22,22 +22,18 @@ export function Titlebar({ connected = false, theme, onToggleTheme }: TitlebarPr
   }, [])
 
   const handleMinimize = () => {
-    console.log('[Titlebar] minimize clicked, electron:', !!window.electron)
-    if (!window.electron) { alert('window.electron undefined!'); return }
-    window.electron.minimize()
+    try { window.electron?.minimize() } catch {}
   }
   const handleMaximize = () => {
-    console.log('[Titlebar] maximize clicked, electron:', !!window.electron)
-    if (!window.electron) return
-    window.electron.maximize()
-    setTimeout(() => {
-      window.electron?.isMaximized().then(v => setIsMaximized(v ?? false)).catch(() => {})
-    }, 100)
+    try {
+      window.electron?.maximize()
+      setTimeout(() => {
+        window.electron?.isMaximized().then(v => setIsMaximized(v ?? false)).catch(() => {})
+      }, 100)
+    } catch {}
   }
   const handleClose = () => {
-    console.log('[Titlebar] close clicked, electron:', !!window.electron)
-    if (!window.electron) return
-    window.electron.close()
+    try { window.electron?.close() } catch {}
   }
 
   return (
