@@ -1360,6 +1360,7 @@ class SensorServer:
         # RAPL power
         self.rapl_path = get_cpu_power()
         self._log_fan_chip_state()
+        self._save_original_fan_state()
         if self.rapl_path:
             print(f"\n⚡ RAPL detectado: {self.rapl_path}")
         else:
@@ -1845,17 +1846,32 @@ class SensorServer:
 
                 success = True
                 try:
-                    # Seta pwm_enable=1 (manual) e deixa o backend controlar via software
-                    # O nct6779 não tem curva configurada para SmartFan (modo 2)
-                    for pe in target_enables:
-                        pw = pe.replace("_enable", "")
-                        if not os.path.exists(pw):
-                            continue
-                        with open(pe, "w") as f:
-                            f.write("1")
-                        # Valor inicial baseado na temp atual
-                        with open(pw, "w") as f:
-                            f.write("128")  # 50% como partida
+                    # Restaura estado original do chip (configurado pela BIOS)
+                    restored = False
+                    if hasattr(self, '_original_fan_state') and self._original_fan_state:
+                        for pw, state in self._original_fan_state.items():
+                            if os.path.dirname(pw) != hwmon_dir:
+                                continue
+                            pe = state['enable_path']
+                            try:
+                                # Restaura enable original (ex: 2=SmartFan como a BIOS configurou)
+                                with open(pe, "w") as f:
+                                    f.write(state['enable'])
+                                print(f"[FAN AUTO] restaurado {os.path.basename(pe)}={state['enable']} pwm={state['pwm']}", flush=True)
+                                restored = True
+                            except Exception as e:
+                                print(f"[FAN AUTO] erro restaurar {pe}: {e}", flush=True)
+                    
+                    if not restored:
+                        # Fallback: seta pwm_enable=1 com valor médio
+                        for pe in target_enables:
+                            pw = pe.replace("_enable", "")
+                            if not os.path.exists(pw):
+                                continue
+                            with open(pe, "w") as f:
+                                f.write("1")
+                            with open(pw, "w") as f:
+                                f.write("128")
 
                     _time.sleep(0.1)
 
@@ -2078,6 +2094,30 @@ class SensorServer:
             # Encerra com código != 0 para o systemd reiniciar (Restart=always)
             asyncio.get_event_loop().call_later(0.5, lambda: os._exit(0))
 
+    def _save_original_fan_state(self):
+        """Salva o estado original do chip de fans (configurado pela BIOS)."""
+        import glob as _g
+        self._original_fan_state = {}  # {pwm_path: {enable, pwm}}
+        for hwmon in sorted(_g.glob('/sys/class/hwmon/hwmon*/')):
+            name_f = os.path.join(hwmon, 'name')
+            if not os.path.exists(name_f):
+                continue
+            with open(name_f) as f:
+                name = f.read().strip()
+            if not any(x in name for x in ['nct', 'it8', 'w83', 'sch']):
+                continue
+            for pe in sorted(_g.glob(os.path.join(hwmon, 'pwm*_enable'))):
+                pw = pe.replace('_enable', '')
+                if not os.path.exists(pw):
+                    continue
+                try:
+                    with open(pe) as f: ev = f.read().strip()
+                    with open(pw) as f: pv = f.read().strip()
+                    self._original_fan_state[pw] = {'enable': ev, 'pwm': pv, 'enable_path': pe}
+                    print(f"[FAN ORIG] salvo {os.path.basename(pw)}: enable={ev} pwm={pv}", flush=True)
+                except Exception:
+                    pass
+
     def _log_fan_chip_state(self):
         """Loga estado completo do chip de fans para diagnóstico."""
         import glob as _g
@@ -2143,10 +2183,11 @@ class SensorServer:
                 else:        pct = 100
                 pwm_val = max(40, min(255, int(pct * 2.55)))
 
-                # Controla TODOS os fans que NÃO estão em manual/max
+                # Só controla fans em auto que NÃO têm estado original da BIOS
+                # (se tem estado original, a BIOS/chip já controla sozinho)
+                has_original = hasattr(self, '_original_fan_state') and self._original_fan_state
                 for fan_id, ctrl_name in self.fan_index_map.items():
                     mode = self.fan_modes.get(fan_id, "auto")
-                    # Pula fans em manual ou max — usuário está controlando
                     if mode in ("manual", "max"):
                         continue
                     ctrl = self.pwm_controls.get(ctrl_name, {})
@@ -2154,8 +2195,12 @@ class SensorServer:
                     enable_path = ctrl.get("pwm_enable")
                     if not pwm_path or not os.path.exists(pwm_path):
                         continue
+                    # Pula se tem estado original (chip controla sozinho)
+                    if has_original and pwm_path in self._original_fan_state:
+                        orig_enable = self._original_fan_state[pwm_path].get("enable", "1")
+                        if orig_enable in ("2", "3", "4", "5"):
+                            continue  # chip em SmartFan — não interfere
                     try:
-                        # Garante que está em modo manual (1) para poder escrever
                         if enable_path and os.path.exists(enable_path):
                             with open(enable_path) as f:
                                 cur_enable = f.read().strip()
