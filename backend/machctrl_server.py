@@ -1849,15 +1849,22 @@ class SensorServer:
                     # Restaura estado original do chip (configurado pela BIOS)
                     restored = False
                     if hasattr(self, '_original_fan_state') and self._original_fan_state:
+                        # Descobre o melhor modo auto para este chip
+                        best_auto = "5"
+                        for pw, state in self._original_fan_state.items():
+                            if os.path.dirname(pw) == hwmon_dir:
+                                best_auto = state.get('best_auto', '5')
+                                break
+
                         for pw, state in self._original_fan_state.items():
                             if os.path.dirname(pw) != hwmon_dir:
                                 continue
                             pe = state['enable_path']
                             try:
-                                # Restaura enable original (ex: 2=SmartFan como a BIOS configurou)
+                                # Usa o melhor modo auto encontrado (ex: 5 = SmartFan IV)
                                 with open(pe, "w") as f:
-                                    f.write(state['enable'])
-                                print(f"[FAN AUTO] restaurado {os.path.basename(pe)}={state['enable']} pwm={state['pwm']}", flush=True)
+                                    f.write(best_auto)
+                                print(f"[FAN AUTO] restaurado {os.path.basename(pe)}={best_auto}", flush=True)
                                 restored = True
                             except Exception as e:
                                 print(f"[FAN AUTO] erro restaurar {pe}: {e}", flush=True)
@@ -2095,9 +2102,12 @@ class SensorServer:
             asyncio.get_event_loop().call_later(0.5, lambda: os._exit(0))
 
     def _save_original_fan_state(self):
-        """Salva o estado original do chip de fans (configurado pela BIOS)."""
+        """Salva o estado original do chip de fans (configurado pela BIOS).
+        Detecta o melhor modo auto disponível para cada canal."""
         import glob as _g
-        self._original_fan_state = {}  # {pwm_path: {enable, pwm}}
+        self._original_fan_state = {}
+        self._best_auto_enable = {}  # {hwmon_dir: melhor modo auto encontrado}
+
         for hwmon in sorted(_g.glob('/sys/class/hwmon/hwmon*/')):
             name_f = os.path.join(hwmon, 'name')
             if not os.path.exists(name_f):
@@ -2106,6 +2116,20 @@ class SensorServer:
                 name = f.read().strip()
             if not any(x in name for x in ['nct', 'it8', 'w83', 'sch']):
                 continue
+
+            # Descobre qual modo auto está sendo usado neste chip
+            best_auto = "5"  # padrão: SmartFan IV
+            for pe in sorted(_g.glob(os.path.join(hwmon, 'pwm*_enable'))):
+                try:
+                    with open(pe) as f:
+                        ev = f.read().strip()
+                    if ev in ("2", "3", "4", "5"):
+                        best_auto = ev  # usa o mesmo modo que a BIOS usa
+                        break
+                except Exception:
+                    pass
+            self._best_auto_enable[hwmon] = best_auto
+
             for pe in sorted(_g.glob(os.path.join(hwmon, 'pwm*_enable'))):
                 pw = pe.replace('_enable', '')
                 if not os.path.exists(pw):
@@ -2113,8 +2137,11 @@ class SensorServer:
                 try:
                     with open(pe) as f: ev = f.read().strip()
                     with open(pw) as f: pv = f.read().strip()
-                    self._original_fan_state[pw] = {'enable': ev, 'pwm': pv, 'enable_path': pe}
-                    print(f"[FAN ORIG] salvo {os.path.basename(pw)}: enable={ev} pwm={pv}", flush=True)
+                    self._original_fan_state[pw] = {
+                        'enable': ev, 'pwm': pv, 'enable_path': pe,
+                        'hwmon': hwmon, 'best_auto': best_auto,
+                    }
+                    print(f"[FAN ORIG] salvo {os.path.basename(pw)}: enable={ev} pwm={pv} best_auto={best_auto}", flush=True)
                 except Exception:
                     pass
 
