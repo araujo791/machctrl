@@ -1908,14 +1908,19 @@ class SensorServer:
                     success = False
 
                 if success:
-                    # Registra como auto_managed — backend controla via curva de temp
+                    # Remove fan_key de fan_modes — sem entrada = auto (padrão)
+                    # Assim o payload retorna "auto" corretamente
                     for fid, pwm_name in list(self.fan_index_map.items()):
                         ctrl = self.pwm_controls.get(pwm_name, {})
                         ctrl_pwm = ctrl.get("pwm", "")
                         if ctrl_pwm and os.path.dirname(ctrl_pwm) == hwmon_dir:
-                            self.fan_modes[fid] = "auto_managed"
-                    if fan_key not in self.fan_modes:
-                        self.fan_modes[fan_key] = "auto_managed"
+                            self.fan_modes.pop(fid, None)
+                            self.fan_speeds.pop(fid, None)
+                    # Remove também variantes do fan_key
+                    for k in list(self.fan_modes.keys()):
+                        if k == fan_key or fan_key in k or k in fan_key:
+                            self.fan_modes.pop(k, None)
+                            self.fan_speeds.pop(k, None)
                     self._save_settings()
 
                 await websocket.send(json.dumps({
