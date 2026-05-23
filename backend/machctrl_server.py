@@ -1593,7 +1593,7 @@ class SensorServer:
                 "rpm":           rpm or 0,
                 "speed_percent": speed_pct,
                 "has_pwm":       bool(pwm_path and os.path.exists(pwm_path)),
-                "mode":          self.fan_modes.get(fan_id or label, "auto"),
+                "mode":          ("auto" if self.fan_modes.get(fan_id or label, "auto") == "auto_managed" else self.fan_modes.get(fan_id or label, "auto")),
             })
 
         # CPU
@@ -1845,65 +1845,19 @@ class SensorServer:
 
                 success = True
                 try:
-                    # Libera lock se outro processo está usando (mata fancontrol/nbfc)
-                    import subprocess as _sp2
-                    for svc in ["fancontrol", "nbfc", "thinkfan"]:
-                        _sp2.run(["systemctl", "stop", svc],
-                                 capture_output=True, timeout=3)
-
-                    _time.sleep(0.3)
-
-                    # Passo 1: seta todos os pwm para 128 (valor neutro)
+                    # Seta pwm_enable=1 (manual) e deixa o backend controlar via software
+                    # O nct6779 não tem curva configurada para SmartFan (modo 2)
                     for pe in target_enables:
                         pw = pe.replace("_enable", "")
-                        if os.path.exists(pw):
-                            with open(pw, "w") as f:
-                                f.write("128")
-
-                    _time.sleep(0.1)
-
-                    # Passo 2: seta todos para manual=1 primeiro (reset limpo)
-                    for pe in target_enables:
+                        if not os.path.exists(pw):
+                            continue
                         with open(pe, "w") as f:
                             f.write("1")
+                        # Valor inicial baseado na temp atual
+                        with open(pw, "w") as f:
+                            f.write("128")  # 50% como partida
 
-                    _time.sleep(0.05)
-
-                    # Passo 3: seta todos para auto=2 de uma vez
-                    for pe in target_enables:
-                        with open(pe, "w") as f:
-                            f.write("2")
-
-                    _time.sleep(0.2)
-
-                    # Configura trip_points básicos para os pwm que estão em auto
-                    # Sem isso, nct6779 vai para pwm=255 por segurança
-                    for pe in target_enables:
-                        pw = pe.replace("_enable", "")
-                        base = pw  # ex: /sys/class/hwmon/hwmon5/pwm1
-                        # Curva simples: temp baixa → pwm baixo, temp alta → pwm alto
-                        # auto_point1: temp=20°C → pwm=80 (31%)
-                        # auto_point2: temp=40°C → pwm=128 (50%)
-                        # auto_point3: temp=60°C → pwm=200 (78%)
-                        # auto_point4: temp=75°C → pwm=255 (100%)
-                        curve = [
-                            (1, 20000, 80),
-                            (2, 40000, 128),
-                            (3, 60000, 200),
-                            (4, 75000, 255),
-                        ]
-                        for pt, temp_mc, pwm_val in curve:
-                            tf = f"{base}_auto_point{pt}_temp"
-                            pf = f"{base}_auto_point{pt}_pwm"
-                            try:
-                                if os.path.exists(tf):
-                                    with open(tf, "w") as f:
-                                        f.write(str(temp_mc))
-                                if os.path.exists(pf):
-                                    with open(pf, "w") as f:
-                                        f.write(str(pwm_val))
-                            except Exception:
-                                pass
+                    _time.sleep(0.1)
 
                     # Verifica estado final
                     for pe in target_enables:
@@ -1954,16 +1908,14 @@ class SensorServer:
                     success = False
 
                 if success:
+                    # Registra como auto_managed — backend controla via curva de temp
                     for fid, pwm_name in list(self.fan_index_map.items()):
                         ctrl = self.pwm_controls.get(pwm_name, {})
                         ctrl_pwm = ctrl.get("pwm", "")
                         if ctrl_pwm and os.path.dirname(ctrl_pwm) == hwmon_dir:
-                            self.fan_modes.pop(fid, None)
-                            self.fan_speeds.pop(fid, None)
-                    for k in list(self.fan_modes.keys()):
-                        if k == fan_key or fan_key in k or k in fan_key:
-                            self.fan_modes.pop(k, None)
-                            self.fan_speeds.pop(k, None)
+                            self.fan_modes[fid] = "auto_managed"
+                    if fan_key not in self.fan_modes:
+                        self.fan_modes[fan_key] = "auto_managed"
                     self._save_settings()
 
                 await websocket.send(json.dumps({
@@ -2138,6 +2090,48 @@ class SensorServer:
                 except Exception:
                     pass
 
+    async def _fan_auto_control(self):
+        """Controle automático de fans quando em modo auto — substitui SmartFan do chip."""
+        import glob as _g
+        while True:
+            try:
+                if self.fan_modes:
+                    # Tem fans em modo não-auto — não interfere
+                    pass
+
+                # Pega temperatura do pacote CPU
+                pkg_temp = 0
+                for ct in (self.data.get("cpus_temps") or []):
+                    pkg_temp = max(pkg_temp, ct.get("package", 0))
+                if pkg_temp == 0:
+                    pkg_temp = self.data.get("temperatures", {}).get("cpu", 0)
+
+                # Apenas controla fans que estão em modo auto (pwm_enable=1 manual pelo backend)
+                for fan_id, mode in list(self.fan_modes.items()):
+                    if mode != "auto_managed":
+                        continue
+                    pwm_name = self.fan_index_map.get(fan_id, fan_id)
+                    ctrl = self.pwm_controls.get(pwm_name, {})
+                    pwm_path = ctrl.get("pwm")
+                    if not pwm_path or not os.path.exists(pwm_path):
+                        continue
+                    # Curva: 30°C→30%, 50°C→50%, 70°C→80%, 85°C→100%
+                    t = pkg_temp
+                    if   t < 30: pct = 30
+                    elif t < 50: pct = 30 + int((t - 30) * 1.0)
+                    elif t < 70: pct = 50 + int((t - 50) * 1.5)
+                    elif t < 85: pct = 80 + int((t - 70) * 1.33)
+                    else:        pct = 100
+                    pwm_val = max(40, min(255, int(pct * 2.55)))
+                    try:
+                        with open(pwm_path, "w") as f:
+                            f.write(str(pwm_val))
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+            await asyncio.sleep(3)
+
     async def broadcast_loop(self):
         while True:
             if self.clients:
@@ -2154,6 +2148,7 @@ class SensorServer:
             await asyncio.sleep(UPDATE_INTERVAL)
 
     async def run(self):
+        asyncio.ensure_future(self._fan_auto_control())
         async with websockets.serve(self.handler, WEBSOCKET_HOST, WEBSOCKET_PORT):
             print(f"🟢 MachCtrl Backend rodando em ws://{WEBSOCKET_HOST}:{WEBSOCKET_PORT}")
             await self.broadcast_loop()
