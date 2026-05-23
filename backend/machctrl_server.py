@@ -1685,14 +1685,32 @@ class SensorServer:
             else:
                 friendly = f"{chip} Fan"
 
+            # Resolve o modo tentando todas as variantes de chave
+            _fan_key = fan_id or label
+            _mode = self.fan_modes.get(_fan_key)
+            if _mode is None and fan_id:
+                _mode = self.fan_modes.get(fan_id)
+            if _mode is None and label:
+                _mode = self.fan_modes.get(label)
+            # Tenta match parcial
+            if _mode is None:
+                for k, v in self.fan_modes.items():
+                    if k in _fan_key or _fan_key in k:
+                        _mode = v
+                        break
+            if _mode is None:
+                _mode = "auto"
+            if _mode == "auto_managed":
+                _mode = "auto"
+
             fan_list.append({
                 "label":         friendly,
-                "name":          fan_id or label,
+                "name":          _fan_key,
                 "label_full":    label,
                 "rpm":           rpm or 0,
                 "speed_percent": speed_pct,
                 "has_pwm":       bool(pwm_path and os.path.exists(pwm_path)),
-                "mode":          ("auto" if self.fan_modes.get(fan_id or label, "auto") == "auto_managed" else self.fan_modes.get(fan_id or label, "auto")),
+                "mode":          _mode,
             })
 
         # CPU
@@ -1886,6 +1904,8 @@ class SensorServer:
             fan_key = cmd.get("fan", "")
             speed   = cmd.get("speed", 50)
             pwm_path, pwm_enable = resolve_fan_ctrl(fan_key)
+            print(f"[FAN SPEED] fan_key={fan_key} speed={speed} pwm={pwm_path}", flush=True)
+            print(f"[FAN SPEED] fan_index_map={self.fan_index_map}", flush=True)
 
             if pwm_path:
                 success = set_fan_speed(pwm_path, pwm_enable, speed)
@@ -1893,6 +1913,7 @@ class SensorServer:
                     self.fan_modes[fan_key]  = "manual" if speed < 100 else "max"
                     self.fan_speeds[fan_key] = speed
                     self._save_settings()
+                    print(f"[FAN SPEED] fan_modes agora={self.fan_modes}", flush=True)
                 await websocket.send(json.dumps({
                     "type": "command_result", "action": "set_fan_speed",
                     "success": success, "fan": fan_key, "speed": speed,
