@@ -1011,39 +1011,52 @@ def set_fan_speed(pwm_path, pwm_enable_path, speed_percent):
 def set_fan_auto(pwm_enable_path, pwm_path=None):
     """Coloca fan em modo automático via pwm_enable."""
     if not pwm_enable_path or not os.path.exists(pwm_enable_path):
+        print(f"[SET_FAN_AUTO] path nao existe: {pwm_enable_path}", flush=True)
         return False
     try:
         import time
-        # Lê o modo atual para saber de onde vem
-        with open(pwm_enable_path) as f:
-            current = f.read().strip()
 
-        # Tenta modo 2 (auto hardware — nct6798, it87, etc)
+        with open(pwm_enable_path) as f:
+            before = f.read().strip()
+        print(f"[SET_FAN_AUTO] {pwm_enable_path} antes={before}", flush=True)
+
+        # nct6798/it87: modo 2 = SmartFan auto controlado pelo chip
         with open(pwm_enable_path, "w") as f:
             f.write("2")
-        time.sleep(0.15)
+        time.sleep(0.2)
         with open(pwm_enable_path) as f:
-            val = f.read().strip()
+            after = f.read().strip()
+        print(f"[SET_FAN_AUTO] apos escrever 2: valor={after}", flush=True)
 
-        if val != "2":
-            # Fallback modo 0 (firmware/BIOS — amdgpu, alguns chips)
+        if after != "2":
+            # Tenta modo 0 (firmware)
             with open(pwm_enable_path, "w") as f:
                 f.write("0")
             time.sleep(0.1)
+            with open(pwm_enable_path) as f:
+                after2 = f.read().strip()
+            print(f"[SET_FAN_AUTO] apos escrever 0: valor={after2}", flush=True)
 
-        # Libera o valor PWM para o chip assumir controle
+        # Lê o pwm atual para saber se está travado
         if pwm_path and os.path.exists(pwm_path):
-            try:
-                with open(pwm_path, "w") as f:
-                    f.write("128")  # valor neutro de partida
-            except Exception:
-                pass
+            with open(pwm_path) as f:
+                pwm_val = f.read().strip()
+            print(f"[SET_FAN_AUTO] pwm atual={pwm_val}", flush=True)
+            # Se o pwm está no máximo (255) ou mínimo (0), libera para 128
+            if pwm_val in ("255", "0"):
+                try:
+                    with open(pwm_path, "w") as f:
+                        f.write("128")
+                    print(f"[SET_FAN_AUTO] pwm liberado para 128", flush=True)
+                except Exception as e:
+                    print(f"[SET_FAN_AUTO] erro ao liberar pwm: {e}", flush=True)
+
         return True
     except PermissionError:
-        print("ERRO set_fan_auto: sem permissão (root necessário)")
+        print("ERRO set_fan_auto: sem permissão (root necessário)", flush=True)
         return False
     except Exception as e:
-        print(f"ERRO set_fan_auto: {e}")
+        print(f"ERRO set_fan_auto: {e}", flush=True)
         return False
 
 
