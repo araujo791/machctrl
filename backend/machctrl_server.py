@@ -1883,7 +1883,7 @@ class SensorServer:
 
                     _time.sleep(0.2)
 
-                    # Verifica se todos ficaram em 2
+                    # Verifica estado final
                     for pe in target_enables:
                         with open(pe) as f:
                             v = f.read().strip()
@@ -1892,9 +1892,34 @@ class SensorServer:
                         if os.path.exists(pw):
                             with open(pw) as f:
                                 pv = f.read().strip()
-                        print(f"[FAN AUTO] {os.path.basename(pe)}={v} pwm={pv}", flush=True)
+                        print(f"[FAN AUTO] final: {os.path.basename(pe)}={v} pwm={pv}", flush=True)
                         if v != "2":
                             success = False
+
+                    # Loga temp targets para diagnóstico
+                    import glob as _g2
+                    for tf in sorted(_g2.glob(os.path.join(hwmon_dir, "temp*_input"))):
+                        try:
+                            with open(tf) as f:
+                                tv = int(f.read().strip()) // 1000
+                            base = os.path.basename(tf).replace("_input","")
+                            # Tenta ler o target deste sensor
+                            tgt_f = tf.replace("_input", "_target") if os.path.exists(tf.replace("_input", "_target")) else None
+                            tgt = ""
+                            if tgt_f and os.path.exists(tgt_f):
+                                with open(tgt_f) as f:
+                                    tgt = f"target={int(f.read().strip())//1000}°C"
+                            print(f"[FAN AUTO] {base}={tv}°C {tgt}", flush=True)
+                        except Exception:
+                            pass
+
+                    # Loga pwm_temp_sel (qual sensor controla cada fan)
+                    for sel_f in sorted(_g2.glob(os.path.join(hwmon_dir, "pwm*_temp_sel"))):
+                        try:
+                            with open(sel_f) as f:
+                                print(f"[FAN AUTO] {os.path.basename(sel_f)}={f.read().strip()}", flush=True)
+                        except Exception:
+                            pass
 
                 except Exception as e:
                     print(f"[FAN AUTO] erro: {e}", flush=True)
