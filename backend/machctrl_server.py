@@ -1051,6 +1051,21 @@ def set_fan_auto(pwm_enable_path, pwm_path=None):
                 except Exception as e:
                     print(f"[SET_FAN_AUTO] erro ao liberar pwm: {e}", flush=True)
 
+        # Verifica todos os pwm_enable do mesmo chip para detectar conflitos
+        import glob
+        hwmon_dir = os.path.dirname(pwm_enable_path)
+        for pe in sorted(glob.glob(os.path.join(hwmon_dir, "pwm*_enable"))):
+            try:
+                with open(pe) as f:
+                    v = f.read().strip()
+                pw = pe.replace("_enable", "")
+                pv = ""
+                if os.path.exists(pw):
+                    with open(pw) as f:
+                        pv = f.read().strip()
+                print(f"[SET_FAN_AUTO] chip estado: {os.path.basename(pe)}={v} pwm={pv}", flush=True)
+            except Exception:
+                pass
         return True
     except PermissionError:
         print("ERRO set_fan_auto: sem permissão (root necessário)", flush=True)
