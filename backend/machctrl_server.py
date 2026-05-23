@@ -2091,45 +2091,55 @@ class SensorServer:
                     pass
 
     async def _fan_auto_control(self):
-        """Controle automático de fans quando em modo auto — substitui SmartFan do chip."""
-        import glob as _g
+        """Controle automático de fans em modo auto — substitui SmartFan do chip nct6779."""
         while True:
             try:
-                if self.fan_modes:
-                    # Tem fans em modo não-auto — não interfere
-                    pass
-
-                # Pega temperatura do pacote CPU
+                # Pega temperatura do pacote CPU (max entre todos os sockets)
                 pkg_temp = 0
                 for ct in (self.data.get("cpus_temps") or []):
                     pkg_temp = max(pkg_temp, ct.get("package", 0))
                 if pkg_temp == 0:
                     pkg_temp = self.data.get("temperatures", {}).get("cpu", 0)
 
-                # Apenas controla fans que estão em modo auto (pwm_enable=1 manual pelo backend)
-                for fan_id, mode in list(self.fan_modes.items()):
-                    if mode != "auto_managed":
+                if pkg_temp <= 0:
+                    await asyncio.sleep(3)
+                    continue
+
+                # Curva de temperatura → pwm%
+                t = pkg_temp
+                if   t < 30: pct = 30
+                elif t < 50: pct = 30 + int((t - 30) * 1.0)   # 30→50%
+                elif t < 70: pct = 50 + int((t - 50) * 1.5)   # 50→80%
+                elif t < 85: pct = 80 + int((t - 70) * 1.33)  # 80→100%
+                else:        pct = 100
+                pwm_val = max(40, min(255, int(pct * 2.55)))
+
+                # Controla TODOS os fans que NÃO estão em manual/max
+                for fan_id, ctrl_name in self.fan_index_map.items():
+                    mode = self.fan_modes.get(fan_id, "auto")
+                    # Pula fans em manual ou max — usuário está controlando
+                    if mode in ("manual", "max"):
                         continue
-                    pwm_name = self.fan_index_map.get(fan_id, fan_id)
-                    ctrl = self.pwm_controls.get(pwm_name, {})
+                    ctrl = self.pwm_controls.get(ctrl_name, {})
                     pwm_path = ctrl.get("pwm")
+                    enable_path = ctrl.get("pwm_enable")
                     if not pwm_path or not os.path.exists(pwm_path):
                         continue
-                    # Curva: 30°C→30%, 50°C→50%, 70°C→80%, 85°C→100%
-                    t = pkg_temp
-                    if   t < 30: pct = 30
-                    elif t < 50: pct = 30 + int((t - 30) * 1.0)
-                    elif t < 70: pct = 50 + int((t - 50) * 1.5)
-                    elif t < 85: pct = 80 + int((t - 70) * 1.33)
-                    else:        pct = 100
-                    pwm_val = max(40, min(255, int(pct * 2.55)))
                     try:
+                        # Garante que está em modo manual (1) para poder escrever
+                        if enable_path and os.path.exists(enable_path):
+                            with open(enable_path) as f:
+                                cur_enable = f.read().strip()
+                            if cur_enable not in ("1",):
+                                with open(enable_path, "w") as f:
+                                    f.write("1")
                         with open(pwm_path, "w") as f:
                             f.write(str(pwm_val))
                     except Exception:
                         pass
-            except Exception:
-                pass
+
+            except Exception as e:
+                print(f"[FAN AUTO CTRL] erro: {e}", flush=True)
             await asyncio.sleep(3)
 
     async def broadcast_loop(self):
