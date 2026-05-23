@@ -613,7 +613,7 @@ def run_clean_task(task_id: str) -> dict:
             r = subprocess.run(["pacman", "-Qdtq"], capture_output=True, text=True)
             orphans = [p.strip() for p in r.stdout.strip().splitlines() if p.strip()]
             if not orphans:
-                return {"success": True, "result": "Nenhum órfão encontrado", "cleaned": "0 pacotes", "bytes": 0}
+                return {"success": True, "result": "Nenhum órfão encontrado", "cleaned": None, "bytes": 0}
             subprocess.run(["pacman", "-Rns", "--noconfirm"] + orphans, capture_output=True)
             return {"success": True, "result": f"{len(orphans)} pacote(s) removido(s)", "cleaned": f"{len(orphans)} pacotes", "bytes": 0}
 
@@ -663,7 +663,12 @@ def run_clean_task(task_id: str) -> dict:
             cache_dir = os.path.expanduser("~/.cache/pip")
             freed = du(cache_dir)
             shutil.rmtree(cache_dir, ignore_errors=True)
-            subprocess.run(["pip", "cache", "purge"], capture_output=True)
+            # Arch/CachyOS usa pip3
+            pip_cmd = "pip3" if shutil.which("pip3") else "pip" if shutil.which("pip") else None
+            if pip_cmd:
+                subprocess.run([pip_cmd, "cache", "purge"], capture_output=True)
+            if freed == 0:
+                return {"success": True, "result": "Nenhum cache pip encontrado", "cleaned": "0 B", "bytes": 0}
             return {"success": True, "result": "Cache pip limpo", "cleaned": fmt(freed), "bytes": freed}
 
         elif task_id == "npm-cache":
