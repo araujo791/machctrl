@@ -1905,8 +1905,14 @@ class SensorServer:
                         if v != "2":
                             success = False
 
-                    # Loga temp targets para diagnóstico
+                    # Loga trip_points dos pwm para diagnóstico
                     import glob as _g2
+                    for tp in sorted(_g2.glob(os.path.join(hwmon_dir, "pwm*_auto_point*"))):
+                        try:
+                            with open(tp) as f:
+                                print(f"[FAN AUTO] {os.path.basename(tp)}={f.read().strip()}", flush=True)
+                        except Exception:
+                            pass
                     for tf in sorted(_g2.glob(os.path.join(hwmon_dir, "temp*_input"))):
                         try:
                             with open(tf) as f:
