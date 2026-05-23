@@ -1860,6 +1860,14 @@ class SensorServer:
 
                 success = True
                 try:
+                    # Libera lock se outro processo está usando (mata fancontrol/nbfc)
+                    import subprocess as _sp2
+                    for svc in ["fancontrol", "nbfc", "thinkfan"]:
+                        _sp2.run(["systemctl", "stop", svc],
+                                 capture_output=True, timeout=3)
+
+                    _time.sleep(0.3)
+
                     # Passo 1: seta todos os pwm para 128 (valor neutro)
                     for pe in target_enables:
                         pw = pe.replace("_enable", "")
