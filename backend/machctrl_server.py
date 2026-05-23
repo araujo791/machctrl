@@ -595,9 +595,24 @@ def get_available_clean_tasks() -> list:
     tasks.append({"id": "thumb-cache",    "label": "Cache de Miniaturas",  "description": "Limpa thumbnails (~/.cache/thumbnails)",         "needsRoot": False})
     tasks.append({"id": "coredumps",      "label": "Core Dumps",           "description": "Remove arquivos de crash do sistema",           "needsRoot": True})
 
-    # Lixeira — sempre disponível
-    trash_dir = _os.path.expanduser("~/.local/share/Trash/files")
-    tasks.append({"id": "trash", "label": "Lixeira", "description": "Esvazia a lixeira (~/.local/share/Trash)", "needsRoot": False})
+    # Lixeira — sempre disponível, mostra tamanho real
+    trash_size = 0
+    for home in _gl.glob("/home/*/") + ["/root/"]:
+        trash_files = _os.path.join(home.rstrip("/"), ".local/share/Trash/files")
+        if _os.path.exists(trash_files):
+            try:
+                import subprocess as _sp2
+                r = _sp2.run(["du", "-sb", trash_files], capture_output=True, text=True)
+                trash_size += int(r.stdout.split()[0]) if r.returncode == 0 else 0
+            except Exception:
+                pass
+    def _fmt_size(b):
+        if b >= 1_073_741_824: return f"{b/1_073_741_824:.1f} GB"
+        if b >= 1_048_576:     return f"{b/1_048_576:.0f} MB"
+        if b >= 1024:          return f"{b/1024:.0f} KB"
+        return f"{b} B"
+    trash_desc = f"Esvazia a lixeira — {_fmt_size(trash_size)} em uso" if trash_size > 0 else "Esvazia a lixeira (~/.local/share/Trash)"
+    tasks.append({"id": "trash", "label": "Lixeira", "description": trash_desc, "needsRoot": False})
 
     # pip — só se instalado E tiver cache
     pip_cmd = _sh.which("pip3") or _sh.which("pip")
@@ -694,18 +709,17 @@ def run_clean_task(task_id: str) -> dict:
 
         elif task_id == "trash":
             freed = 0
-            # Lixeira do usuário atual e do root
-            import pwd
-            users_to_check = set()
-            # Usuário do processo (root rodando como serviço)
-            users_to_check.add(os.path.expanduser("~"))
-            # Usuário real (SUDO_USER ou dono do /home/*)
-            for home in glob.glob("/home/*/"):
-                users_to_check.add(home.rstrip("/"))
-            users_to_check.add("/root")
-
             count = 0
-            for home in users_to_check:
+            # Coleta todos os homes para verificar
+            homes_to_check = set()
+            # Todos os usuários em /home/
+            for home in glob.glob("/home/*/"):
+                homes_to_check.add(home.rstrip("/"))
+            # Root
+            homes_to_check.add("/root")
+
+            for home in homes_to_check:
+                # Lixeira principal
                 for subdir in ["files", "info", "expunged"]:
                     trash_path = os.path.join(home, ".local/share/Trash", subdir)
                     if not os.path.exists(trash_path):
@@ -715,9 +729,26 @@ def run_clean_task(task_id: str) -> dict:
                             size = os.path.getsize(f) if os.path.isfile(f) else du(f)
                             if os.path.isfile(f) or os.path.islink(f): os.remove(f)
                             elif os.path.isdir(f): shutil.rmtree(f, ignore_errors=True)
-                            freed += size; count += 1
+                            freed += size
+                            count += 1
                         except Exception:
                             pass
+                # KDE também usa .Trash-1000 na raiz dos discos
+                for trash_root in glob.glob("/media/*/.Trash-*") + glob.glob("/mnt/*/.Trash-*") + glob.glob("/run/media/*/*/.Trash-*"):
+                    for subdir in ["files", "info"]:
+                        trash_path = os.path.join(trash_root, subdir)
+                        if not os.path.exists(trash_path):
+                            continue
+                        for f in glob.glob(os.path.join(trash_path, "*")):
+                            try:
+                                size = os.path.getsize(f) if os.path.isfile(f) else du(f)
+                                if os.path.isfile(f) or os.path.islink(f): os.remove(f)
+                                elif os.path.isdir(f): shutil.rmtree(f, ignore_errors=True)
+                                freed += size
+                                count += 1
+                            except Exception:
+                                pass
+
             if count == 0:
                 return {"success": True, "result": "Lixeira já está vazia", "cleaned": None, "bytes": 0}
             return {"success": True, "result": f"{count} item(s) removido(s)", "cleaned": fmt(freed), "bytes": freed}
