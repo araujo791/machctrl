@@ -38,11 +38,9 @@ function FanCard({ fan, onCommand }: { fan: any; onCommand: (c: object) => void 
   const [feedback, setFeedback] = useState('')
   const [applying, setApplying] = useState(false)
 
-  // Sincroniza mode com servidor — mas não durante operação pendente
+  // Sempre sincroniza com o servidor — estado local é só visual temporário
   useEffect(() => {
-    if (!applying) {
-      setMode((fan.mode as 'auto'|'manual'|'max') ?? 'auto')
-    }
+    setMode((fan.mode as 'auto'|'manual'|'max') ?? 'auto')
   }, [fan.mode])
 
   const angleRef = useRef(0)
