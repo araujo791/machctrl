@@ -142,5 +142,16 @@ export function useSensorData(url = 'ws://localhost:8765') {
     }
   }, [])
 
-  return { state, data, history, tempHistory, sendCommand }
+  // Permite que painéis registrem listeners para mensagens específicas
+  const addMessageListener = useCallback((listener: (msg: any) => void) => {
+    const ws = wsRef.current
+    if (!ws) return () => {}
+    const handler = (e: MessageEvent) => {
+      try { listener(JSON.parse(e.data)) } catch {}
+    }
+    ws.addEventListener('message', handler)
+    return () => ws.removeEventListener('message', handler)
+  }, [])
+
+  return { state, data, history, tempHistory, sendCommand, addMessageListener }
 }

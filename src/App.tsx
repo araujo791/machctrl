@@ -22,7 +22,7 @@ const PAGE_TITLES: Record<Tab, string> = {
 
 export function App() {
   const [tab, setTab] = useState<Tab>('overview')
-  const { state, data, history, tempHistory, sendCommand } = useSensorData()
+  const { state, data, history, tempHistory, sendCommand, addMessageListener } = useSensorData()
   const { theme, toggle } = useTheme()
   const connected = state === 'connected'
 
@@ -60,7 +60,7 @@ export function App() {
             {data && tab==='disks'     && <DisksPanel    data={data} />}
             {data && tab==='fans'      && <FansPanel     data={data} onCommand={sendCommand} />}
             {data && tab==='power'     && <div style={{overflowY:'auto',height:'100%',paddingTop:4}}><PowerPanel data={data} onCommand={sendCommand} /></div>}
-            {tab==='cleaner'           && <CleanerPanel />}
+            {tab==='cleaner'           && <CleanerPanel sendCommand={sendCommand} addMessageListener={addMessageListener} />}
             {tab==='benchmark'         && <BenchmarkPanel />}
             {tab==='about'             && <AboutPanel theme={theme} onToggleTheme={toggle} />}
           </div>
