@@ -1,6 +1,6 @@
 # MachCtrl Desktop v2.0
 
-Monitor e Otimizador de Hardware para Linux — estilo Sensei, feito para CachyOS / Arch Linux.
+Monitor e Otimizador de Hardware para Linux —  feito para CachyOS / Arch Linux.
 
 ## Funcionalidades
 
