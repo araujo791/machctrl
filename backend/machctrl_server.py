@@ -1011,45 +1011,29 @@ def set_fan_speed(pwm_path, pwm_enable_path, speed_percent):
 def set_fan_auto(pwm_enable_path, pwm_path=None):
     """Coloca fan em modo automático via pwm_enable."""
     if not pwm_enable_path or not os.path.exists(pwm_enable_path):
-        print(f"[SET_FAN_AUTO] path nao existe: {pwm_enable_path}", flush=True)
         return False
     try:
         import time
 
-        with open(pwm_enable_path) as f:
-            before = f.read().strip()
-        print(f"[SET_FAN_AUTO] {pwm_enable_path} antes={before}", flush=True)
-
-        # nct6798/it87: modo 2 = SmartFan auto controlado pelo chip
+        # Tenta modo 2 (SmartFan — nct6779/nct6798/it87)
         with open(pwm_enable_path, "w") as f:
             f.write("2")
-        time.sleep(0.2)
+        time.sleep(0.15)
         with open(pwm_enable_path) as f:
-            after = f.read().strip()
-        print(f"[SET_FAN_AUTO] apos escrever 2: valor={after}", flush=True)
+            val = f.read().strip()
 
-        if after != "2":
-            # Tenta modo 0 (firmware)
+        if val != "2":
+            # Fallback modo 0 (firmware/BIOS)
             with open(pwm_enable_path, "w") as f:
                 f.write("0")
             time.sleep(0.1)
-            with open(pwm_enable_path) as f:
-                after2 = f.read().strip()
-            print(f"[SET_FAN_AUTO] apos escrever 0: valor={after2}", flush=True)
 
-        # Lê o pwm atual para saber se está travado
-        if pwm_path and os.path.exists(pwm_path):
-            with open(pwm_path) as f:
-                pwm_val = f.read().strip()
-            print(f"[SET_FAN_AUTO] pwm atual={pwm_val}", flush=True)
-            # Se o pwm está no máximo (255) ou mínimo (0), libera para 128
-            if pwm_val in ("255", "0"):
-                try:
-                    with open(pwm_path, "w") as f:
-                        f.write("128")
-                    print(f"[SET_FAN_AUTO] pwm liberado para 128", flush=True)
-                except Exception as e:
-                    print(f"[SET_FAN_AUTO] erro ao liberar pwm: {e}", flush=True)
+        return True
+    except PermissionError:
+        return False
+    except Exception as e:
+        print(f"[SET_FAN_AUTO] erro: {e}", flush=True)
+        return False
 
         # Verifica todos os pwm_enable do mesmo chip para detectar conflitos
         import glob
@@ -1891,6 +1875,35 @@ class SensorServer:
                             f.write("2")
 
                     _time.sleep(0.2)
+
+                    # Configura trip_points básicos para os pwm que estão em auto
+                    # Sem isso, nct6779 vai para pwm=255 por segurança
+                    for pe in target_enables:
+                        pw = pe.replace("_enable", "")
+                        base = pw  # ex: /sys/class/hwmon/hwmon5/pwm1
+                        # Curva simples: temp baixa → pwm baixo, temp alta → pwm alto
+                        # auto_point1: temp=20°C → pwm=80 (31%)
+                        # auto_point2: temp=40°C → pwm=128 (50%)
+                        # auto_point3: temp=60°C → pwm=200 (78%)
+                        # auto_point4: temp=75°C → pwm=255 (100%)
+                        curve = [
+                            (1, 20000, 80),
+                            (2, 40000, 128),
+                            (3, 60000, 200),
+                            (4, 75000, 255),
+                        ]
+                        for pt, temp_mc, pwm_val in curve:
+                            tf = f"{base}_auto_point{pt}_temp"
+                            pf = f"{base}_auto_point{pt}_pwm"
+                            try:
+                                if os.path.exists(tf):
+                                    with open(tf, "w") as f:
+                                        f.write(str(temp_mc))
+                                if os.path.exists(pf):
+                                    with open(pf, "w") as f:
+                                        f.write(str(pwm_val))
+                            except Exception:
+                                pass
 
                     # Verifica estado final
                     for pe in target_enables:

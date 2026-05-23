@@ -38,12 +38,14 @@ function FanCard({ fan, onCommand }: { fan: any; onCommand: (c: object) => void 
   const [feedback, setFeedback] = useState('')
   const [applying, setApplying] = useState(false)
 
-  // Sincroniza mode com o servidor quando não há operação pendente
+  // Sincroniza mode apenas na primeira vez (montagem do componente)
+  const syncedRef = useRef(false)
   useEffect(() => {
-    if (!applying && fan.mode) {
+    if (!syncedRef.current && fan.mode) {
       setMode(fan.mode as 'auto'|'manual'|'max')
+      syncedRef.current = true
     }
-  }, [fan.mode, applying])
+  }, [fan.mode])
 
   const angleRef = useRef(0)
   const rafRef   = useRef<number>()
