@@ -1803,12 +1803,21 @@ class SensorServer:
         elif action == "set_fan_auto":
             fan_key = cmd.get("fan", "")
             pwm_path, pwm_enable = resolve_fan_ctrl(fan_key)
-            if pwm_path:
+            print(f"[FAN AUTO] fan_key={fan_key} pwm_path={pwm_path} pwm_enable={pwm_enable}", flush=True)
+
+            if not pwm_path:
+                print(f"[FAN AUTO] ERRO: nao encontrou pwm para {fan_key}", flush=True)
+                print(f"[FAN AUTO] fan_index_map={self.fan_index_map}", flush=True)
+                print(f"[FAN AUTO] pwm_controls keys={list(self.pwm_controls.keys())}", flush=True)
+                await websocket.send(json.dumps({
+                    "type": "command_result", "action": "set_fan_auto",
+                    "success": False, "fan": fan_key,
+                }))
+            else:
                 success = set_fan_auto(pwm_enable, pwm_path)
+                print(f"[FAN AUTO] set_fan_auto result={success}", flush=True)
                 if success:
-                    self.fan_modes.pop(fan_key, None)
-                    self.fan_speeds.pop(fan_key, None)
-                    # Remove também pelo label_full para garantir limpeza
+                    # Remove todas as variantes da chave para garantir limpeza
                     for k in list(self.fan_modes.keys()):
                         if k == fan_key or fan_key in k or k in fan_key:
                             self.fan_modes.pop(k, None)
