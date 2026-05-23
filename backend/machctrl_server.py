@@ -581,12 +581,54 @@ def get_power_watts():
 
 
 
+def get_available_clean_tasks() -> list:
+    """Retorna lista de tarefas disponíveis detectando ferramentas instaladas."""
+    import shutil as _sh, os as _os, glob as _gl
+
+    tasks = []
+
+    # Sempre disponíveis (sistema base)
+    tasks.append({"id": "pacman-cache",   "label": "Cache do Pacman",      "description": "Remove pacotes antigos (/var/cache/pacman/pkg)", "needsRoot": True})
+    tasks.append({"id": "pacman-orphans", "label": "Pacotes Órfãos",       "description": "Remove pacotes sem dependentes instalados",      "needsRoot": True})
+    tasks.append({"id": "journal-logs",   "label": "Logs do Journal",      "description": "Limpa logs do systemd (mantém últimos 7 dias)", "needsRoot": True})
+    tasks.append({"id": "temp-files",     "label": "Arquivos Temporários", "description": "Remove arquivos antigos de /tmp e /var/tmp",    "needsRoot": True})
+    tasks.append({"id": "thumb-cache",    "label": "Cache de Miniaturas",  "description": "Limpa thumbnails (~/.cache/thumbnails)",         "needsRoot": False})
+    tasks.append({"id": "coredumps",      "label": "Core Dumps",           "description": "Remove arquivos de crash do sistema",           "needsRoot": True})
+
+    # Lixeira — sempre disponível
+    trash_dir = _os.path.expanduser("~/.local/share/Trash/files")
+    tasks.append({"id": "trash", "label": "Lixeira", "description": "Esvazia a lixeira (~/.local/share/Trash)", "needsRoot": False})
+
+    # pip — só se instalado E tiver cache
+    pip_cmd = _sh.which("pip3") or _sh.which("pip")
+    pip_cache = _os.path.expanduser("~/.cache/pip")
+    if pip_cmd and _os.path.exists(pip_cache) and any(_gl.glob(pip_cache + "/**", recursive=True)):
+        tasks.append({"id": "pip-cache", "label": "Cache do Pip", "description": f"Limpa cache Python ({pip_cmd})", "needsRoot": False})
+
+    # npm — só se instalado E tiver cache
+    if _sh.which("npm") and _os.path.exists(_os.path.expanduser("~/.npm")):
+        tasks.append({"id": "npm-cache", "label": "Cache do npm", "description": "Limpa cache de pacotes Node.js (~/.npm)", "needsRoot": False})
+
+    # yarn — só se instalado
+    if _sh.which("yarn") and _os.path.exists(_os.path.expanduser("~/.cache/yarn")):
+        tasks.append({"id": "yarn-cache", "label": "Cache do Yarn", "description": "Limpa cache do Yarn (~/.cache/yarn)", "needsRoot": False})
+
+    # docker — só se instalado e rodando
+    if _sh.which("docker") and _os.path.exists("/var/lib/docker"):
+        tasks.append({"id": "docker-prune", "label": "Docker (imagens/containers)", "description": "Remove imagens e containers parados", "needsRoot": True})
+
+    # flatpak — só se instalado
+    if _sh.which("flatpak"):
+        tasks.append({"id": "flatpak-unused", "label": "Flatpak não usados", "description": "Remove runtimes Flatpak desnecessários", "needsRoot": False})
+
+    return tasks
+
+
 def run_clean_task(task_id: str) -> dict:
     """Executa tarefa de limpeza real e retorna bytes liberados."""
     import subprocess, shutil, glob, os
 
     def du(path):
-        """Retorna tamanho em bytes de um path."""
         try:
             r = subprocess.run(['du', '-sb', path], capture_output=True, text=True)
             return int(r.stdout.split()[0]) if r.returncode == 0 else 0
@@ -600,14 +642,26 @@ def run_clean_task(task_id: str) -> dict:
         if b >= 1024:          return f"{b/1024:.0f} KB"
         return f"{b} B"
 
+    def rm_glob(patterns):
+        freed, count = 0, 0
+        for pattern in patterns:
+            for f in glob.glob(pattern):
+                try:
+                    size = os.path.getsize(f) if os.path.isfile(f) else du(f)
+                    if os.path.isfile(f) or os.path.islink(f): os.remove(f)
+                    elif os.path.isdir(f): shutil.rmtree(f, ignore_errors=True)
+                    freed += size; count += 1
+                except Exception:
+                    pass
+        return freed, count
+
     try:
         if task_id == "pacman-cache":
             before = du("/var/cache/pacman/pkg")
             subprocess.run(["paccache", "-rk1"], capture_output=True)
             subprocess.run(["paccache", "-ruk0"], capture_output=True)
-            after = du("/var/cache/pacman/pkg")
-            freed = max(0, before - after)
-            return {"success": True, "result": "Cache limpo (mantidas 1 versão)", "cleaned": fmt(freed), "bytes": freed}
+            freed = max(0, before - du("/var/cache/pacman/pkg"))
+            return {"success": True, "result": "Cache limpo (1 versão mantida)", "cleaned": fmt(freed), "bytes": freed}
 
         elif task_id == "pacman-orphans":
             r = subprocess.run(["pacman", "-Qdtq"], capture_output=True, text=True)
@@ -620,79 +674,92 @@ def run_clean_task(task_id: str) -> dict:
         elif task_id == "journal-logs":
             before = du("/var/log/journal")
             subprocess.run(["journalctl", "--vacuum-time=7d"], capture_output=True)
-            after = du("/var/log/journal")
-            freed = max(0, before - after)
+            freed = max(0, before - du("/var/log/journal"))
             return {"success": True, "result": "Logs compactados (7 dias mantidos)", "cleaned": fmt(freed), "bytes": freed}
 
         elif task_id == "temp-files":
-            freed = 0
-            count = 0
-            for pattern in ["/tmp/*", "/var/tmp/*"]:
-                for f in glob.glob(pattern):
-                    try:
-                        size = os.path.getsize(f) if os.path.isfile(f) else du(f)
-                        if os.path.isfile(f): os.remove(f)
-                        elif os.path.isdir(f): shutil.rmtree(f, ignore_errors=True)
-                        freed += size
-                        count += 1
-                    except Exception:
-                        pass
+            freed, count = rm_glob(["/tmp/*", "/var/tmp/*"])
             return {"success": True, "result": f"{count} itens removidos", "cleaned": fmt(freed), "bytes": freed}
 
         elif task_id == "thumb-cache":
-            paths = glob.glob(os.path.expanduser("~/.cache/thumbnails/**"), recursive=True)
-            freed = sum(os.path.getsize(f) for f in paths if os.path.isfile(f))
-            shutil.rmtree(os.path.expanduser("~/.cache/thumbnails"), ignore_errors=True)
+            cache = os.path.expanduser("~/.cache/thumbnails")
+            freed = du(cache)
+            shutil.rmtree(cache, ignore_errors=True)
             return {"success": True, "result": "Miniaturas removidas", "cleaned": fmt(freed), "bytes": freed}
 
         elif task_id == "coredumps":
-            freed = 0
-            count = 0
-            for pattern in ["/var/lib/systemd/coredump/*", "/tmp/core*"]:
-                for f in glob.glob(pattern):
-                    try:
-                        freed += os.path.getsize(f)
-                        os.remove(f)
-                        count += 1
-                    except Exception:
-                        pass
+            freed, count = rm_glob(["/var/lib/systemd/coredump/*", "/tmp/core*"])
             subprocess.run(["coredumpctl", "clean"], capture_output=True)
             return {"success": True, "result": f"{count} core dump(s) removido(s)", "cleaned": fmt(freed), "bytes": freed}
 
+        elif task_id == "trash":
+            freed = 0
+            # Lixeira do usuário atual e do root
+            import pwd
+            users_to_check = set()
+            # Usuário do processo (root rodando como serviço)
+            users_to_check.add(os.path.expanduser("~"))
+            # Usuário real (SUDO_USER ou dono do /home/*)
+            for home in glob.glob("/home/*/"):
+                users_to_check.add(home.rstrip("/"))
+            users_to_check.add("/root")
+
+            count = 0
+            for home in users_to_check:
+                for subdir in ["files", "info", "expunged"]:
+                    trash_path = os.path.join(home, ".local/share/Trash", subdir)
+                    if not os.path.exists(trash_path):
+                        continue
+                    for f in glob.glob(os.path.join(trash_path, "*")):
+                        try:
+                            size = os.path.getsize(f) if os.path.isfile(f) else du(f)
+                            if os.path.isfile(f) or os.path.islink(f): os.remove(f)
+                            elif os.path.isdir(f): shutil.rmtree(f, ignore_errors=True)
+                            freed += size; count += 1
+                        except Exception:
+                            pass
+            if count == 0:
+                return {"success": True, "result": "Lixeira já está vazia", "cleaned": None, "bytes": 0}
+            return {"success": True, "result": f"{count} item(s) removido(s)", "cleaned": fmt(freed), "bytes": freed}
+
         elif task_id == "pip-cache":
-            cache_dir = os.path.expanduser("~/.cache/pip")
-            freed = du(cache_dir)
-            shutil.rmtree(cache_dir, ignore_errors=True)
-            # Arch/CachyOS usa pip3
-            pip_cmd = "pip3" if shutil.which("pip3") else "pip" if shutil.which("pip") else None
+            cache = os.path.expanduser("~/.cache/pip")
+            freed = du(cache)
+            shutil.rmtree(cache, ignore_errors=True)
+            pip_cmd = shutil.which("pip3") or shutil.which("pip")
             if pip_cmd:
                 subprocess.run([pip_cmd, "cache", "purge"], capture_output=True)
-            if freed == 0:
-                return {"success": True, "result": "Nenhum cache pip encontrado", "cleaned": "0 B", "bytes": 0}
             return {"success": True, "result": "Cache pip limpo", "cleaned": fmt(freed), "bytes": freed}
 
         elif task_id == "npm-cache":
-            cache_dir = os.path.expanduser("~/.npm")
-            freed = du(cache_dir)
+            cache = os.path.expanduser("~/.npm")
+            freed = du(cache)
             subprocess.run(["npm", "cache", "clean", "--force"], capture_output=True)
             return {"success": True, "result": "Cache npm limpo", "cleaned": fmt(freed), "bytes": freed}
 
-        elif task_id == "trash":
+        elif task_id == "yarn-cache":
+            cache = os.path.expanduser("~/.cache/yarn")
+            freed = du(cache)
+            subprocess.run(["yarn", "cache", "clean"], capture_output=True)
+            return {"success": True, "result": "Cache yarn limpo", "cleaned": fmt(freed), "bytes": freed}
+
+        elif task_id == "docker-prune":
+            r = subprocess.run(["docker", "system", "prune", "-f"], capture_output=True, text=True)
+            # Tenta extrair bytes liberados da saída do docker
             freed = 0
-            for trash_dir in [
-                os.path.expanduser("~/.local/share/Trash/files"),
-                os.path.expanduser("~/.local/share/Trash/info"),
-                "/root/.local/share/Trash/files",
-            ]:
-                if os.path.exists(trash_dir):
-                    freed += du(trash_dir)
-                    for f in glob.glob(os.path.join(trash_dir, "*")):
-                        try:
-                            if os.path.isfile(f) or os.path.islink(f): os.remove(f)
-                            elif os.path.isdir(f): shutil.rmtree(f, ignore_errors=True)
-                        except Exception:
-                            pass
-            return {"success": True, "result": "Lixeira esvaziada", "cleaned": fmt(freed), "bytes": freed}
+            for line in r.stdout.splitlines():
+                if "reclaimed" in line.lower():
+                    import re
+                    m = re.search(r"([\d.]+)\s*(B|kB|MB|GB)", line)
+                    if m:
+                        v, u = float(m.group(1)), m.group(2)
+                        freed = int(v * {"B":1,"kB":1024,"MB":1048576,"GB":1073741824}.get(u,1))
+            return {"success": True, "result": "Docker limpo", "cleaned": fmt(freed) if freed else "feito", "bytes": freed}
+
+        elif task_id == "flatpak-unused":
+            r = subprocess.run(["flatpak", "uninstall", "--unused", "-y"], capture_output=True, text=True)
+            removed = [l for l in r.stdout.splitlines() if l.strip() and "Removing" in l]
+            return {"success": True, "result": f"{len(removed)} runtime(s) removido(s)" if removed else "Nenhum runtime desnecessário", "cleaned": f"{len(removed)} pacotes" if removed else None, "bytes": 0}
 
         else:
             return {"success": False, "result": f"Tarefa desconhecida: {task_id}", "cleaned": "—", "bytes": 0}
@@ -1804,6 +1871,10 @@ class SensorServer:
                     "type": "error",
                     "message": f"Fan '{fan_key}' não encontrado. fan_index_map={self.fan_index_map}"
                 }))
+
+        elif action == "get_clean_tasks":
+            tasks = get_available_clean_tasks()
+            await websocket.send(json.dumps({"type": "clean_tasks", "tasks": tasks}))
 
         elif action == "run_clean_task":
             task_id = cmd.get("task_id", "")
