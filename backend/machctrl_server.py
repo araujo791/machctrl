@@ -1831,26 +1831,43 @@ class SensorServer:
         elif action == "set_fan_auto":
             fan_key = cmd.get("fan", "")
             pwm_path, pwm_enable = resolve_fan_ctrl(fan_key)
-            print(f"[FAN AUTO] fan_key={fan_key} pwm_path={pwm_path} pwm_enable={pwm_enable}", flush=True)
 
             if not pwm_path:
-                print(f"[FAN AUTO] ERRO: nao encontrou pwm para {fan_key}", flush=True)
-                print(f"[FAN AUTO] fan_index_map={self.fan_index_map}", flush=True)
-                print(f"[FAN AUTO] pwm_controls keys={list(self.pwm_controls.keys())}", flush=True)
                 await websocket.send(json.dumps({
                     "type": "command_result", "action": "set_fan_auto",
                     "success": False, "fan": fan_key,
                 }))
             else:
-                success = set_fan_auto(pwm_enable, pwm_path)
-                print(f"[FAN AUTO] set_fan_auto result={success}", flush=True)
+                import glob as _glob
+                hwmon_dir = os.path.dirname(pwm_path)
+
+                # Seta TODOS os pwm_enable do mesmo chip para auto
+                # O nct6798 reseta outros canais quando só um é alterado
+                all_enables = sorted(_glob.glob(os.path.join(hwmon_dir, "pwm*_enable")))
+                success = True
+                for pe in all_enables:
+                    pw = pe.replace("_enable", "")
+                    if os.path.exists(pw):
+                        ok = set_fan_auto(pe, pw)
+                        if not ok:
+                            success = False
+
                 if success:
-                    # Remove todas as variantes da chave para garantir limpeza
+                    # Remove todos os fan_modes deste chip do dicionário
+                    # Identifica quais fan_ids pertencem a este chip
+                    for fid, pwm_name in list(self.fan_index_map.items()):
+                        ctrl = self.pwm_controls.get(pwm_name, {})
+                        ctrl_pwm = ctrl.get("pwm", "")
+                        if ctrl_pwm and os.path.dirname(ctrl_pwm) == hwmon_dir:
+                            self.fan_modes.pop(fid, None)
+                            self.fan_speeds.pop(fid, None)
+                    # Remove também pelo fan_key direto
                     for k in list(self.fan_modes.keys()):
                         if k == fan_key or fan_key in k or k in fan_key:
                             self.fan_modes.pop(k, None)
                             self.fan_speeds.pop(k, None)
                     self._save_settings()
+
                 await websocket.send(json.dumps({
                     "type": "command_result", "action": "set_fan_auto",
                     "success": success, "fan": fan_key,
