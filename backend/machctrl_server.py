@@ -1908,14 +1908,38 @@ class SensorServer:
                     success = False
 
                 if success:
-                    # Remove fan_key de fan_modes — sem entrada = auto (padrão)
-                    # Assim o payload retorna "auto" corretamente
+                    # Calcula pwm imediato pela curva de temp (não espera a task de 3s)
+                    pkg_temp = 0
+                    for ct in (self.data.get("cpus_temps") or []):
+                        pkg_temp = max(pkg_temp, ct.get("package", 0))
+                    if pkg_temp == 0:
+                        pkg_temp = self.data.get("temperatures", {}).get("cpu", 0)
+                    t = pkg_temp or 40
+                    if   t < 30: pct = 30
+                    elif t < 50: pct = 30 + int((t - 30) * 1.0)
+                    elif t < 70: pct = 50 + int((t - 50) * 1.5)
+                    elif t < 85: pct = 80 + int((t - 70) * 1.33)
+                    else:        pct = 100
+                    pwm_now = max(40, min(255, int(pct * 2.55)))
+
+                    # Aplica pwm imediatamente em todos os fans do chip
                     for fid, pwm_name in list(self.fan_index_map.items()):
                         ctrl = self.pwm_controls.get(pwm_name, {})
                         ctrl_pwm = ctrl.get("pwm", "")
+                        ctrl_enable = ctrl.get("pwm_enable", "")
                         if ctrl_pwm and os.path.dirname(ctrl_pwm) == hwmon_dir:
+                            try:
+                                if ctrl_enable and os.path.exists(ctrl_enable):
+                                    with open(ctrl_enable, "w") as f:
+                                        f.write("1")
+                                if os.path.exists(ctrl_pwm):
+                                    with open(ctrl_pwm, "w") as f:
+                                        f.write(str(pwm_now))
+                            except Exception:
+                                pass
                             self.fan_modes.pop(fid, None)
                             self.fan_speeds.pop(fid, None)
+
                     # Remove também variantes do fan_key
                     for k in list(self.fan_modes.keys()):
                         if k == fan_key or fan_key in k or k in fan_key:
