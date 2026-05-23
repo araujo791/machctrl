@@ -131,7 +131,9 @@ WantedBy=multi-user.target
 EOF
 
 systemctl daemon-reload
-systemctl enable --now machctrl-backend.service 2>/dev/null \
+systemctl enable --now machctrl-backend.service
+# Reinicia para detectar todos os sensores corretamente
+sleep 2 && systemctl restart machctrl-backend 2>/dev/null || true 2>/dev/null \
   && ok "machctrl-backend ativo" \
   || warn "Verifique: journalctl -u machctrl-backend -n 20"
 

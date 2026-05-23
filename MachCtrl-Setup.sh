@@ -133,6 +133,8 @@ WantedBy=multi-user.target
 EOF
 systemctl daemon-reload
 systemctl enable --now machctrl-backend.service
+# Reinicia para detectar todos os sensores corretamente
+sleep 2 && systemctl restart machctrl-backend 2>/dev/null || true
 
 step 6 "Detectando sensores..."
 yes "" | sensors-detect --auto &>/dev/null || true

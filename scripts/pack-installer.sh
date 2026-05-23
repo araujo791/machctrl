@@ -83,6 +83,13 @@ mkdir -p "\${INSTALL_DIR}/backend"
 cp "\${TMPDIR_INST}/MachCtrl.AppImage" "\${INSTALL_DIR}/MachCtrl.AppImage"
 chmod +x "\${INSTALL_DIR}/MachCtrl.AppImage"
 cp "\${TMPDIR_INST}/machctrl_server.py" "\${INSTALL_DIR}/backend/machctrl_server.py"
+# Instala icone
+if sed -n '/^__ICON_START__$/,/^__ICON_END__$/{/^__ICON/d;p}' "\${SCRIPT_PATH}" | base64 -d | gunzip > /tmp/mc-icon.png 2>/dev/null && [ -s /tmp/mc-icon.png ]; then
+  install -Dm644 /tmp/mc-icon.png /usr/share/pixmaps/machctrl.png
+  install -Dm644 /tmp/mc-icon.png /usr/share/icons/hicolor/256x256/apps/machctrl.png
+  gtk-update-icon-cache -f /usr/share/icons/hicolor 2>/dev/null || true
+  rm -f /tmp/mc-icon.png
+fi
 cat > /usr/local/bin/machctrl << 'LAUNCHEREOF'
 #!/bin/bash
 exec /opt/machctrl/MachCtrl.AppImage "\\\$@"
@@ -128,8 +135,11 @@ Keywords=hardware;cpu;gpu;ram;monitor;temperatura;
 StartupNotify=true
 DESKEOF
 update-desktop-database /usr/share/applications 2>/dev/null || true
+# Reinicia backend para detectar todos os sensores
+systemctl restart machctrl-backend 2>/dev/null || true
+# Recarrega menu KDE/GNOME
 DBUS_ADDR=\$(grep -z DBUS_SESSION_BUS_ADDRESS /proc/\$(pgrep -u "\${CURRENT_USER}" | head -1)/environ 2>/dev/null | tr -d '\0' | sed 's/DBUS_SESSION_BUS_ADDRESS=//' || true)
-sudo -u "\${CURRENT_USER}" env DBUS_SESSION_BUS_ADDRESS="\${DBUS_ADDR}" bash -c 'kbuildsycoca6 --noincremental 2>/dev/null || kbuildsycoca5 --noincremental 2>/dev/null || true' 2>/dev/null || true
+sudo -u "\${CURRENT_USER}" env DBUS_SESSION_BUS_ADDRESS="\${DBUS_ADDR}" bash -c 'kbuildsycoca6 --noincremental 2>/dev/null || kbuildsycoca5 --noincremental 2>/dev/null || true; xdg-desktop-menu forceupdate 2>/dev/null || true' 2>/dev/null || true
 echo "SUCESSO"
 ROOTEOF
 
@@ -204,6 +214,16 @@ StartupNotify=true
 X-KDE-SubstituteVariables=false
 __DATA_START__
 DESKTOPEOF
+
+# Embutir ícone no script interno antes de cifrar
+ICON_SRC="$SCRIPT_DIR/src/assets/app-icon.png"
+if [[ -f "$ICON_SRC" ]]; then
+  echo -n "  Ícone... "
+  printf '\n__ICON_START__\n' >> "$TMP_INNER"
+  gzip -9 -c "$ICON_SRC" | base64 -w76 >> "$TMP_INNER"
+  printf '\n__ICON_END__\n' >> "$TMP_INNER"
+  echo "OK"
+fi
 
 cat "$TMP_ENCRYPTED" >> "$OUT"
 chmod 700 "$OUT"
