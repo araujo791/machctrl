@@ -1838,30 +1838,53 @@ class SensorServer:
                     "success": False, "fan": fan_key,
                 }))
             else:
-                import glob as _glob
+                import glob as _glob, time as _time
                 hwmon_dir = os.path.dirname(pwm_path)
-
-                # Seta TODOS os pwm_enable do mesmo chip para auto
-                # O nct6798 reseta outros canais quando só um é alterado
                 all_enables = sorted(_glob.glob(os.path.join(hwmon_dir, "pwm*_enable")))
+
+                # O nct6798 reverte outros canais quando um é alterado
+                # Solução: escrever em TODOS ao mesmo tempo em loop rápido (3x)
                 success = True
+                for attempt in range(3):
+                    for pe in all_enables:
+                        pw = pe.replace("_enable", "")
+                        if not os.path.exists(pw):
+                            continue
+                        try:
+                            # Só seta os que têm fan sensor mapeado (ignora pwm3-5 que são 0/255)
+                            with open(pe) as f:
+                                cur = f.read().strip()
+                            # Pula os que já estão em modo firmware (0) — são outros periféricos
+                            if cur == "0" and pe != pwm_enable:
+                                continue
+                            with open(pe, "w") as f:
+                                f.write("2")
+                        except Exception as e:
+                            print(f"[FAN AUTO] erro em {pe}: {e}", flush=True)
+                            success = False
+                    _time.sleep(0.05)
+
+                # Verifica resultado final
                 for pe in all_enables:
                     pw = pe.replace("_enable", "")
-                    if os.path.exists(pw):
-                        ok = set_fan_auto(pe, pw)
-                        if not ok:
-                            success = False
+                    if not os.path.exists(pw):
+                        continue
+                    try:
+                        with open(pe) as f:
+                            v = f.read().strip()
+                        if v == "0":
+                            continue  # firmware mode, ok
+                        print(f"[FAN AUTO] final: {os.path.basename(pe)}={v}", flush=True)
+                    except Exception:
+                        pass
 
                 if success:
-                    # Remove todos os fan_modes deste chip do dicionário
-                    # Identifica quais fan_ids pertencem a este chip
                     for fid, pwm_name in list(self.fan_index_map.items()):
                         ctrl = self.pwm_controls.get(pwm_name, {})
                         ctrl_pwm = ctrl.get("pwm", "")
                         if ctrl_pwm and os.path.dirname(ctrl_pwm) == hwmon_dir:
                             self.fan_modes.pop(fid, None)
                             self.fan_speeds.pop(fid, None)
-                    # Remove também pelo fan_key direto
                     for k in list(self.fan_modes.keys()):
                         if k == fan_key or fan_key in k or k in fan_key:
                             self.fan_modes.pop(k, None)
