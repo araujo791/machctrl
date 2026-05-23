@@ -1375,6 +1375,7 @@ class SensorServer:
 
         # RAPL power
         self.rapl_path = get_cpu_power()
+        self._log_fan_chip_state()
         if self.rapl_path:
             print(f"\n⚡ RAPL detectado: {self.rapl_path}")
         else:
@@ -2076,6 +2077,47 @@ class SensorServer:
             print("🔄 Reinício solicitado pelo cliente. Saindo para que o systemd/supervisor reinicie...")
             # Encerra com código != 0 para o systemd reiniciar (Restart=always)
             asyncio.get_event_loop().call_later(0.5, lambda: os._exit(0))
+
+    def _log_fan_chip_state(self):
+        """Loga estado completo do chip de fans para diagnóstico."""
+        import glob as _g
+        for hwmon in sorted(_g.glob('/sys/class/hwmon/hwmon*/')):
+            name_f = os.path.join(hwmon, 'name')
+            if not os.path.exists(name_f):
+                continue
+            with open(name_f) as f:
+                name = f.read().strip()
+            if not any(x in name for x in ['nct', 'it8', 'w83', 'sch']):
+                continue
+            print(f"[FAN CHIP] === {name} ({hwmon}) ===", flush=True)
+            for pe in sorted(_g.glob(os.path.join(hwmon, 'pwm*_enable'))):
+                pw = pe.replace('_enable', '')
+                try:
+                    with open(pe) as f: ev = f.read().strip()
+                    pv = open(pw).read().strip() if os.path.exists(pw) else '?'
+                    # Tenta ler temp_sel
+                    sel_f = pw + '_temp_sel'
+                    sv = open(sel_f).read().strip() if os.path.exists(sel_f) else '?'
+                    # Tenta ler min/max
+                    min_f = pw.replace('pwm', 'pwm') + '_min'
+                    max_f = pw.replace('pwm', 'pwm') + '_max'
+                    mn = open(min_f).read().strip() if os.path.exists(min_f) else '?'
+                    mx = open(max_f).read().strip() if os.path.exists(max_f) else '?'
+                    print(f"[FAN CHIP]   {os.path.basename(pe)}={ev} pwm={pv} temp_sel={sv} min={mn} max={mx}", flush=True)
+                except Exception:
+                    pass
+            for tf in sorted(_g.glob(os.path.join(hwmon, 'temp*_input'))):
+                try:
+                    with open(tf) as f: tv = int(f.read().strip()) // 1000
+                    base = os.path.basename(tf).replace('_input', '')
+                    # temp_target se existir
+                    tgt_f = tf.replace('_input', '_target')
+                    tgt = open(tgt_f).read().strip() if os.path.exists(tgt_f) else '?'
+                    crit_f = tf.replace('_input', '_crit')
+                    crit = open(crit_f).read().strip() if os.path.exists(crit_f) else '?'
+                    print(f"[FAN CHIP]   {base}={tv}°C target={tgt} crit={crit}", flush=True)
+                except Exception:
+                    pass
 
     async def broadcast_loop(self):
         while True:
