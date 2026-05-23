@@ -1838,45 +1838,67 @@ class SensorServer:
                     "success": False, "fan": fan_key,
                 }))
             else:
-                import glob as _glob, time as _time
+                import glob as _glob, time as _time, subprocess as _sp
                 hwmon_dir = os.path.dirname(pwm_path)
+
+                # Estratégia para nct6798:
+                # 1. Primeiro seta TODOS os pwm para valor médio (128)
+                # 2. Depois seta TODOS os pwm_enable=2 rapidamente
+                # 3. O chip não reverte se todos estão em auto simultaneamente
+
                 all_enables = sorted(_glob.glob(os.path.join(hwmon_dir, "pwm*_enable")))
-
-                # O nct6798 reverte outros canais quando um é alterado
-                # Solução: escrever em TODOS ao mesmo tempo em loop rápido (3x)
-                success = True
-                for attempt in range(3):
-                    for pe in all_enables:
-                        pw = pe.replace("_enable", "")
-                        if not os.path.exists(pw):
-                            continue
-                        try:
-                            # Só seta os que têm fan sensor mapeado (ignora pwm3-5 que são 0/255)
-                            with open(pe) as f:
-                                cur = f.read().strip()
-                            # Pula os que já estão em modo firmware (0) — são outros periféricos
-                            if cur == "0" and pe != pwm_enable:
-                                continue
-                            with open(pe, "w") as f:
-                                f.write("2")
-                        except Exception as e:
-                            print(f"[FAN AUTO] erro em {pe}: {e}", flush=True)
-                            success = False
-                    _time.sleep(0.05)
-
-                # Verifica resultado final
+                # Filtra só os que estavam em modo manual (1) ou auto (2) — não firmware (0)
+                target_enables = []
                 for pe in all_enables:
-                    pw = pe.replace("_enable", "")
-                    if not os.path.exists(pw):
-                        continue
                     try:
                         with open(pe) as f:
                             v = f.read().strip()
-                        if v == "0":
-                            continue  # firmware mode, ok
-                        print(f"[FAN AUTO] final: {os.path.basename(pe)}={v}", flush=True)
+                        if v in ("1", "2"):
+                            target_enables.append(pe)
                     except Exception:
                         pass
+
+                success = True
+                try:
+                    # Passo 1: seta todos os pwm para 128 (valor neutro)
+                    for pe in target_enables:
+                        pw = pe.replace("_enable", "")
+                        if os.path.exists(pw):
+                            with open(pw, "w") as f:
+                                f.write("128")
+
+                    _time.sleep(0.1)
+
+                    # Passo 2: seta todos para manual=1 primeiro (reset limpo)
+                    for pe in target_enables:
+                        with open(pe, "w") as f:
+                            f.write("1")
+
+                    _time.sleep(0.05)
+
+                    # Passo 3: seta todos para auto=2 de uma vez
+                    for pe in target_enables:
+                        with open(pe, "w") as f:
+                            f.write("2")
+
+                    _time.sleep(0.2)
+
+                    # Verifica se todos ficaram em 2
+                    for pe in target_enables:
+                        with open(pe) as f:
+                            v = f.read().strip()
+                        pw = pe.replace("_enable", "")
+                        pv = ""
+                        if os.path.exists(pw):
+                            with open(pw) as f:
+                                pv = f.read().strip()
+                        print(f"[FAN AUTO] {os.path.basename(pe)}={v} pwm={pv}", flush=True)
+                        if v != "2":
+                            success = False
+
+                except Exception as e:
+                    print(f"[FAN AUTO] erro: {e}", flush=True)
+                    success = False
 
                 if success:
                     for fid, pwm_name in list(self.fan_index_map.items()):
