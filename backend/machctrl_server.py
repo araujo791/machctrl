@@ -1980,14 +1980,23 @@ class SensorServer:
                                 continue
                             pe = state['enable_path']
                             try:
-                                # Usa o modo original salvo para este pwm específico
-                                # (amdgpu usa 2, nct6779 usa 5)
-                                orig_enable = state.get('enable', best_auto)
-                                # Se o original era manual (1), usa best_auto do chip
-                                restore_mode = orig_enable if orig_enable != "1" else best_auto
+                                # Para nct6779: usa enable=1 (manual) — backend controla via software
+                                # com temperatura real da CPU (SmartFan usa sensor errado)
+                                # Para amdgpu: usa enable=2 (auto do chip — funciona corretamente)
+                                chip_name = ""
+                                name_f = os.path.join(hwmon_dir, "name")
+                                if os.path.exists(name_f):
+                                    with open(name_f) as f:
+                                        chip_name = f.read().strip()
+
+                                if "amdgpu" in chip_name or "radeon" in chip_name:
+                                    restore_mode = "2"  # GPU — SmartFan do chip funciona
+                                else:
+                                    restore_mode = "1"  # CPU fans — backend controla
+
                                 with open(pe, "w") as f:
                                     f.write(restore_mode)
-                                print(f"[FAN AUTO] restaurado {os.path.basename(pe)}={restore_mode}", flush=True)
+                                print(f"[FAN AUTO] restaurado {os.path.basename(pe)}={restore_mode} ({chip_name})", flush=True)
                                 restored = True
                             except Exception as e:
                                 print(f"[FAN AUTO] erro restaurar {pe}: {e}", flush=True)
@@ -2014,7 +2023,9 @@ class SensorServer:
                             try:
                                 with open(tf) as f:
                                     tv = int(f.read().strip()) // 1000
-                                if tv <= 0 or tv > 120:
+                                # Filtra sensores inválidos — aceita apenas 10°C a 100°C
+                                # temp4/temp5 do nct6779 mostram 112/114°C (leituras fantasma)
+                                if tv < 10 or tv > 100:
                                     continue
                                 m = _re3.search(r'temp(\d+)_input', tf)
                                 if m and tv > best_temp_val:
@@ -2023,16 +2034,18 @@ class SensorServer:
                             except Exception:
                                 pass
                         if best_temp_sel:
-                            for pe in target_enables:
-                                pw = pe.replace("_enable", "")
-                                sel_f = pw + "_temp_sel"
-                                if os.path.exists(sel_f):
-                                    try:
-                                        with open(sel_f, "w") as f:
-                                            f.write(best_temp_sel)
-                                        print(f"[FAN AUTO] temp_sel={best_temp_sel} ({best_temp_val}°C) para {os.path.basename(pw)}", flush=True)
-                                    except Exception:
-                                        pass
+                            # Só aplica se a temp for razoável (10°C a 100°C)
+                            if 10 <= best_temp_val <= 100:
+                                for pe in target_enables:
+                                    pw = pe.replace("_enable", "")
+                                    sel_f = pw + "_temp_sel"
+                                    if os.path.exists(sel_f):
+                                        try:
+                                            with open(sel_f, "w") as f:
+                                                f.write(best_temp_sel)
+                                            print(f"[FAN AUTO] temp_sel={best_temp_sel} ({best_temp_val}°C) para {os.path.basename(pw)}", flush=True)
+                                        except Exception:
+                                            pass
                     except Exception as e:
                         print(f"[FAN AUTO] erro temp_sel: {e}", flush=True)
 
@@ -2381,18 +2394,21 @@ class SensorServer:
                     await asyncio.sleep(3)
                     continue
 
-                # Curva de temperatura → pwm%
+                # Curva de temperatura → pwm (baseada no TDP do Xeon E5 v4)
+                # 30°C→45%, 50°C→60%, 65°C→80%, 75°C→90%, 85°C→100%
                 t = pkg_temp
-                if   t < 30: pct = 30
-                elif t < 50: pct = 30 + int((t - 30) * 1.0)   # 30→50%
-                elif t < 70: pct = 50 + int((t - 50) * 1.5)   # 50→80%
-                elif t < 85: pct = 80 + int((t - 70) * 1.33)  # 80→100%
+                if   t < 30: pct = 45
+                elif t < 50: pct = 45 + int((t - 30) * 0.75)  # 45→60%
+                elif t < 65: pct = 60 + int((t - 50) * 1.33)  # 60→80%
+                elif t < 75: pct = 80 + int((t - 65) * 1.0)   # 80→90%
+                elif t < 85: pct = 90 + int((t - 75) * 1.0)   # 90→100%
                 else:        pct = 100
-                pwm_val = max(40, min(255, int(pct * 2.55)))
+                pwm_val = max(60, min(255, int(pct * 2.55)))
+                print(f"[FAN CTRL] temp={t}°C → pct={pct}% pwm={pwm_val}", flush=True)
 
-                # Só controla fans em auto que NÃO têm estado original da BIOS
-                # (se tem estado original, a BIOS/chip já controla sozinho)
-                has_original = hasattr(self, '_original_fan_state') and self._original_fan_state
+                # Controla TODOS os fans nct6779 em modo auto via software
+                # O chip usa sensores errados (temp_sel aponta para MB, não CPU)
+                # Por isso ignoramos o SmartFan e controlamos direto com temp da CPU
                 for fan_id, ctrl_name in self.fan_index_map.items():
                     mode = self.fan_modes.get(fan_id, "auto")
                     if mode in ("manual", "max"):
@@ -2402,16 +2418,15 @@ class SensorServer:
                     enable_path = ctrl.get("pwm_enable")
                     if not pwm_path or not os.path.exists(pwm_path):
                         continue
-                    # Pula se tem estado original (chip controla sozinho)
-                    if has_original and pwm_path in self._original_fan_state:
-                        orig_enable = self._original_fan_state[pwm_path].get("enable", "1")
-                        if orig_enable in ("2", "3", "4", "5"):
-                            continue  # chip em SmartFan — não interfere
+                    # Pula GPU (amdgpu) — ela controla os próprios fans
+                    if "amdgpu" in ctrl_name or "radeon" in ctrl_name:
+                        continue
                     try:
+                        # Força modo manual para poder escrever o pwm
                         if enable_path and os.path.exists(enable_path):
                             with open(enable_path) as f:
-                                cur_enable = f.read().strip()
-                            if cur_enable not in ("1",):
+                                cur = f.read().strip()
+                            if cur != "1":
                                 with open(enable_path, "w") as f:
                                     f.write("1")
                         with open(pwm_path, "w") as f:
