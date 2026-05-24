@@ -2049,30 +2049,24 @@ class SensorServer:
                     except Exception as e:
                         print(f"[FAN AUTO] erro temp_sel: {e}", flush=True)
 
-                    # Verifica estado final — reescreve se algum reverteu
+                    # Verifica que ficou em enable=1 (modo software)
+                    # O chip pode reverter para 5 — precisamos forçar 1
                     import time as _t2
-                    for attempt in range(3):
+                    for attempt in range(5):
                         all_ok = True
                         for pe in target_enables:
                             try:
                                 with open(pe) as f:
                                     v = f.read().strip()
-                                if v not in ("2","3","4","5"):
-                                    # Ainda em manual — tenta restaurar novamente
-                                    restore = "5"
-                                    if hasattr(self, '_original_fan_state'):
-                                        pw = pe.replace("_enable","")
-                                        st = self._original_fan_state.get(pw, {})
-                                        orig = st.get("enable","1")
-                                        restore = orig if orig != "1" else "5"
+                                if v != "1":
                                     with open(pe, "w") as f:
-                                        f.write(restore)
+                                        f.write("1")
                                     all_ok = False
                             except Exception:
                                 pass
                         if all_ok:
                             break
-                        _t2.sleep(0.1)
+                        _t2.sleep(0.05)
 
                     for pe in target_enables:
                         try:
@@ -2080,6 +2074,8 @@ class SensorServer:
                             pw = pe.replace("_enable","")
                             pv = open(pw).read().strip() if os.path.exists(pw) else "?"
                             print(f"[FAN AUTO] final: {os.path.basename(pe)}={v} pwm={pv}", flush=True)
+                            if v != "1":
+                                print(f"[FAN AUTO] AVISO: {os.path.basename(pe)} nao ficou em 1!", flush=True)
                         except Exception:
                             pass
 
@@ -2422,17 +2418,15 @@ class SensorServer:
                     if "amdgpu" in ctrl_name or "radeon" in ctrl_name:
                         continue
                     try:
-                        # Força modo manual para poder escrever o pwm
+                        # Força enable=1 SEMPRE antes de escrever
+                        # O chip pode ter revertido para 5 entre ciclos
                         if enable_path and os.path.exists(enable_path):
-                            with open(enable_path) as f:
-                                cur = f.read().strip()
-                            if cur != "1":
-                                with open(enable_path, "w") as f:
-                                    f.write("1")
+                            with open(enable_path, "w") as f:
+                                f.write("1")
                         with open(pwm_path, "w") as f:
                             f.write(str(pwm_val))
-                    except Exception:
-                        pass
+                    except Exception as _e:
+                        print(f"[FAN CTRL] erro escrevendo {pwm_path}: {_e}", flush=True)
 
             except Exception as e:
                 print(f"[FAN AUTO CTRL] erro: {e}", flush=True)
