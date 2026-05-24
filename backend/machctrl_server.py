@@ -456,10 +456,7 @@ def get_network_info(prev_counters=None, prev_time=None):
         addrs   = _psutil.net_if_addrs()
         io_now  = _psutil.net_io_counters(pernic=True)
         now_t   = time.time()
-        print(f"[NET] interfaces encontradas: {list(stats.keys())}", flush=True)
-        print(f"[NET] io_now keys: {list(io_now.keys())}", flush=True)
-        for n, s in stats.items():
-            print(f"[NET]   {n}: isup={s.isup} speed={s.speed}", flush=True)
+
         # Snapshot como dict simples para ser serializavel em JSON
         snapshot = {
             name: {"bytes_sent": c.bytes_sent, "bytes_recv": c.bytes_recv}
@@ -1904,8 +1901,7 @@ class SensorServer:
             fan_key = cmd.get("fan", "")
             speed   = cmd.get("speed", 50)
             pwm_path, pwm_enable = resolve_fan_ctrl(fan_key)
-            print(f"[FAN SPEED] fan_key={fan_key} speed={speed} pwm={pwm_path}", flush=True)
-            print(f"[FAN SPEED] fan_index_map={self.fan_index_map}", flush=True)
+
 
             if pwm_path:
                 success = set_fan_speed(pwm_path, pwm_enable, speed)
@@ -1913,7 +1909,7 @@ class SensorServer:
                     self.fan_modes[fan_key]  = "manual" if speed < 100 else "max"
                     self.fan_speeds[fan_key] = speed
                     self._save_settings()
-                    print(f"[FAN SPEED] fan_modes agora={self.fan_modes}", flush=True)
+
                 await websocket.send(json.dumps({
                     "type": "command_result", "action": "set_fan_speed",
                     "success": success, "fan": fan_key, "speed": speed,
@@ -1984,10 +1980,14 @@ class SensorServer:
                                 continue
                             pe = state['enable_path']
                             try:
-                                # Usa o melhor modo auto encontrado (ex: 5 = SmartFan IV)
+                                # Usa o modo original salvo para este pwm específico
+                                # (amdgpu usa 2, nct6779 usa 5)
+                                orig_enable = state.get('enable', best_auto)
+                                # Se o original era manual (1), usa best_auto do chip
+                                restore_mode = orig_enable if orig_enable != "1" else best_auto
                                 with open(pe, "w") as f:
-                                    f.write(best_auto)
-                                print(f"[FAN AUTO] restaurado {os.path.basename(pe)}={best_auto}", flush=True)
+                                    f.write(restore_mode)
+                                print(f"[FAN AUTO] restaurado {os.path.basename(pe)}={restore_mode}", flush=True)
                                 restored = True
                             except Exception as e:
                                 print(f"[FAN AUTO] erro restaurar {pe}: {e}", flush=True)
@@ -2313,6 +2313,10 @@ class SensorServer:
         """Controle automático de fans em modo auto — substitui SmartFan do chip nct6779."""
         while True:
             try:
+                # Aguarda self.data estar disponível
+                if not hasattr(self, 'data') or not self.data:
+                    await asyncio.sleep(3)
+                    continue
                 # Pega temperatura do pacote CPU (max entre todos os sockets)
                 pkg_temp = 0
                 for ct in (self.data.get("cpus_temps") or []):
