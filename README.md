@@ -18,8 +18,8 @@ Monitor e Otimizador de Hardware para Linux —  feito para CachyOS / Arch Linux
 ## Instalação (CachyOS / Arch Linux)
 
 ```bash
-git clone https://github.com/araujo791/solus-os-gateway.git
-cd solus-os-gateway/machctrl-desktop
+git clone https://github.com/araujo791/machctrl.git
+cd machctrl
 sudo bash install.sh
 ```
 
