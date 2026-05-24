@@ -24,7 +24,7 @@ sudo bash install.sh
 ```
 
 O instalador cuida de tudo:
-- Instala dependências (`python-psutil`, `lm_sensors`, `dmidecode`, `lshw`, `electron`, `nodejs`)
+- Instala dependências (`python-psutil`, `lm_sensors`, `dmidecode`,`electron`, `nodejs`)
 - Configura `sudoers` para `dmidecode` sem senha (leitura dos pentes de RAM)
 - Cria serviço `systemd` `machctrl-backend` (roda como root para acesso total ao hardware)
 - Cria entrada `.desktop` no menu de aplicativos
