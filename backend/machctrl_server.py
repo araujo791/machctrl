@@ -2005,18 +2005,39 @@ class SensorServer:
 
                     _time.sleep(0.1)
 
-                    # Verifica estado final
+                    # Verifica estado final — reescreve se algum reverteu
+                    import time as _t2
+                    for attempt in range(3):
+                        all_ok = True
+                        for pe in target_enables:
+                            try:
+                                with open(pe) as f:
+                                    v = f.read().strip()
+                                if v not in ("2","3","4","5"):
+                                    # Ainda em manual — tenta restaurar novamente
+                                    restore = "5"
+                                    if hasattr(self, '_original_fan_state'):
+                                        pw = pe.replace("_enable","")
+                                        st = self._original_fan_state.get(pw, {})
+                                        orig = st.get("enable","1")
+                                        restore = orig if orig != "1" else "5"
+                                    with open(pe, "w") as f:
+                                        f.write(restore)
+                                    all_ok = False
+                            except Exception:
+                                pass
+                        if all_ok:
+                            break
+                        _t2.sleep(0.1)
+
                     for pe in target_enables:
-                        with open(pe) as f:
-                            v = f.read().strip()
-                        pw = pe.replace("_enable", "")
-                        pv = ""
-                        if os.path.exists(pw):
-                            with open(pw) as f:
-                                pv = f.read().strip()
-                        print(f"[FAN AUTO] final: {os.path.basename(pe)}={v} pwm={pv}", flush=True)
-                        if v != "2":
-                            success = False
+                        try:
+                            with open(pe) as f: v = f.read().strip()
+                            pw = pe.replace("_enable","")
+                            pv = open(pw).read().strip() if os.path.exists(pw) else "?"
+                            print(f"[FAN AUTO] final: {os.path.basename(pe)}={v} pwm={pv}", flush=True)
+                        except Exception:
+                            pass
 
                     # Loga trip_points dos pwm para diagnóstico
                     import glob as _g2
@@ -2055,11 +2076,12 @@ class SensorServer:
 
                 if success:
                     # Calcula pwm imediato pela curva de temp (não espera a task de 3s)
+                    _data = getattr(self, 'data', {}) or {}
                     pkg_temp = 0
-                    for ct in (self.data.get("cpus_temps") or []):
+                    for ct in (_data.get("cpus_temps") or []):
                         pkg_temp = max(pkg_temp, ct.get("package", 0))
                     if pkg_temp == 0:
-                        pkg_temp = self.data.get("temperatures", {}).get("cpu", 0)
+                        pkg_temp = _data.get("temperatures", {}).get("cpu", 0)
                     t = pkg_temp or 40
                     if   t < 30: pct = 30
                     elif t < 50: pct = 30 + int((t - 30) * 1.0)
