@@ -2074,8 +2074,6 @@ class SensorServer:
                             pw = pe.replace("_enable","")
                             pv = open(pw).read().strip() if os.path.exists(pw) else "?"
                             print(f"[FAN AUTO] final: {os.path.basename(pe)}={v} pwm={pv}", flush=True)
-                            if v != "1":
-                                print(f"[FAN AUTO] AVISO: {os.path.basename(pe)} nao ficou em 1!", flush=True)
                         except Exception:
                             pass
 
@@ -2401,7 +2399,6 @@ class SensorServer:
                 elif t < 85: pct = 90 + int((t - 75) * 1.0)   # 90→100%
                 else:        pct = 100
                 pwm_val = max(60, min(255, int(pct * 2.55)))
-                print(f"[FAN CTRL] temp={t}°C → pct={pct}% pwm={pwm_val}", flush=True)
 
                 # Controla TODOS os fans nct6779 em modo auto via software
                 # O chip usa sensores errados (temp_sel aponta para MB, não CPU)
@@ -2426,8 +2423,8 @@ class SensorServer:
                                 f.write("1")
                         with open(pwm_path, "w") as f:
                             f.write(str(pwm_val))
-                    except Exception as _e:
-                        print(f"[FAN CTRL] erro escrevendo {pwm_path}: {_e}", flush=True)
+                    except Exception:
+                        pass
 
             except Exception as e:
                 print(f"[FAN AUTO CTRL] erro: {e}", flush=True)
