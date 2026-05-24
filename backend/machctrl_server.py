@@ -2005,6 +2005,37 @@ class SensorServer:
 
                     _time.sleep(0.1)
 
+                    # Corrige temp_sel para usar o sensor mais quente do chip (CPU)
+                    import glob as _g3, re as _re3
+                    try:
+                        best_temp_sel = None
+                        best_temp_val = 0
+                        for tf in sorted(_g3.glob(os.path.join(hwmon_dir, "temp*_input"))):
+                            try:
+                                with open(tf) as f:
+                                    tv = int(f.read().strip()) // 1000
+                                if tv <= 0 or tv > 120:
+                                    continue
+                                m = _re3.search(r'temp(\d+)_input', tf)
+                                if m and tv > best_temp_val:
+                                    best_temp_val = tv
+                                    best_temp_sel = m.group(1)
+                            except Exception:
+                                pass
+                        if best_temp_sel:
+                            for pe in target_enables:
+                                pw = pe.replace("_enable", "")
+                                sel_f = pw + "_temp_sel"
+                                if os.path.exists(sel_f):
+                                    try:
+                                        with open(sel_f, "w") as f:
+                                            f.write(best_temp_sel)
+                                        print(f"[FAN AUTO] temp_sel={best_temp_sel} ({best_temp_val}°C) para {os.path.basename(pw)}", flush=True)
+                                    except Exception:
+                                        pass
+                    except Exception as e:
+                        print(f"[FAN AUTO] erro temp_sel: {e}", flush=True)
+
                     # Verifica estado final — reescreve se algum reverteu
                     import time as _t2
                     for attempt in range(3):
