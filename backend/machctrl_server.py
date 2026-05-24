@@ -2116,7 +2116,7 @@ class SensorServer:
 
                 if success:
                     # Calcula pwm imediato pela curva de temp (não espera a task de 3s)
-                    _data = getattr(self, 'data', {}) or {}
+                    _data = getattr(self, '_last_sensor_data', {}) or {}
                     pkg_temp = 0
                     for ct in (_data.get("cpus_temps") or []):
                         pkg_temp = max(pkg_temp, ct.get("package", 0))
@@ -2375,16 +2375,17 @@ class SensorServer:
         """Controle automático de fans em modo auto — substitui SmartFan do chip nct6779."""
         while True:
             try:
-                # Aguarda self.data estar disponível
-                if not hasattr(self, 'data') or not self.data:
-                    await asyncio.sleep(3)
+                # Usa os dados do último ciclo de sensores
+                _d = getattr(self, '_last_sensor_data', None)
+                if not _d:
+                    await asyncio.sleep(1)
                     continue
                 # Pega temperatura do pacote CPU (max entre todos os sockets)
                 pkg_temp = 0
-                for ct in (self.data.get("cpus_temps") or []):
+                for ct in (_d.get("cpus_temps") or []):
                     pkg_temp = max(pkg_temp, ct.get("package", 0))
                 if pkg_temp == 0:
-                    pkg_temp = self.data.get("temperatures", {}).get("cpu", 0)
+                    pkg_temp = _d.get("temperatures", {}).get("cpu", 0)
 
                 if pkg_temp <= 0:
                     await asyncio.sleep(3)
@@ -2436,6 +2437,7 @@ class SensorServer:
         while True:
             if self.clients:
                 data = self.read_all_sensors()
+                self._last_sensor_data = data  # salva para _fan_auto_control usar
                 data["type"] = "sensors_update"
                 message = json.dumps(data)
                 dead_clients = set()
