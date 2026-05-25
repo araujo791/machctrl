@@ -7,29 +7,40 @@ arch=('x86_64')
 url="https://github.com/araujo791/machctrl"
 license=('MIT')
 depends=('electron' 'python' 'python-psutil' 'lm_sensors' 'dmidecode' 'lshw')
-makedepends=('npm' 'nodejs')
+makedepends=('npm' 'nodejs' 'git')
 options=(!strip)
 source=("git+${url}.git")
 sha256sums=('SKIP')
 
 prepare() {
-  cd "$srcdir/machctrl-desktop"
-  npm install
+  # Entra direto na raiz clonada pelo Git (que assume o nome do pacote)
+  cd "$srcdir/$pkgname"
+  
+  # Força a instalação limpa de dependências em cache do node
+  npm ci || npm install
 }
 
 build() {
-  cd "$srcdir/machctrl-desktop"
+  cd "$srcdir/$pkgname"
+  
+  # Compila o frontend gerando a pasta dist externa
   npm run build
 }
 
 package() {
-  cd "$srcdir/machctrl-desktop"
+  cd "$srcdir/$pkgname"
 
+  # Criação do diretório /opt/machctrl
   install -dm755 "$pkgdir/opt/machctrl"
-  cp -r dist electron backend "$pkgdir/opt/machctrl/"
-  cp package.json "$pkgdir/opt/machctrl/"
+  
+  # Copia as pastas de produção geradas para o diretório final
+  # Inclui a pasta node_modules necessária para módulos nativos rodarem em produção
+  cp -r dist electron backend node_modules package.json "$pkgdir/opt/machctrl/"
 
-  # Launcher
+  # Garante permissão de execução no script do servidor Python do Systemd
+  chmod +x "$pkgdir/opt/machctrl/backend/machctrl_server.py"
+
+  # Launcher binário
   install -dm755 "$pkgdir/usr/bin"
   cat > "$pkgdir/usr/bin/machctrl" << 'EOF'
 #!/bin/bash
@@ -66,4 +77,9 @@ Terminal=false
 Type=Application
 Categories=System;Monitor;
 EOF
+
+  # Item Obrigatório para o AUR: Cópia do arquivo de licença MIT do repositório
+  if [ -f "LICENSE" ]; then
+    install -Dm644 "LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  fi
 }
