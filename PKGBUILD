@@ -4,7 +4,7 @@ pkgver=2.0.0
 pkgrel=1
 pkgdesc="Monitor e Otimizador de Hardware para Linux"
 arch=('x86_64')
-url="https://github.com"
+url="https://github.com/araujo791/machctrl"
 license=('MIT')
 depends=('electron' 'python' 'python-psutil' 'lm_sensors' 'dmidecode')
 makedepends=('npm' 'nodejs' 'git')
@@ -27,7 +27,7 @@ package() {
 
   # Criação do diretório /opt/machctrl
   install -dm755 "$pkgdir/opt/machctrl"
-  
+
   # Copia arquivos necessários de produção para o diretório final
   cp -r dist electron backend node_modules package.json "$pkgdir/opt/machctrl/"
 
