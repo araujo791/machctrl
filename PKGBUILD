@@ -13,17 +13,17 @@ source=("git+${url}.git")
 sha256sums=('SKIP')
 
 prepare() {
-  cd "$srcdir/solus-os-gateway/machctrl-desktop"
+  cd "$srcdir/machctrl-desktop"
   npm install
 }
 
 build() {
-  cd "$srcdir/solus-os-gateway/machctrl-desktop"
+  cd "$srcdir/machctrl-desktop"
   npm run build
 }
 
 package() {
-  cd "$srcdir/solus-os-gateway/machctrl-desktop"
+  cd "$srcdir/machctrl-desktop"
 
   install -dm755 "$pkgdir/opt/machctrl"
   cp -r dist electron backend "$pkgdir/opt/machctrl/"
