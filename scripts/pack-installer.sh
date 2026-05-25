@@ -205,8 +205,8 @@ cat > "$OUT" << DESKTOPEOF
 [Desktop Entry]
 Name=Instalar MachCtrl ${VERSION}
 Comment=Monitor de Hardware para Linux
-Exec=bash -c 'K=\$(echo "${APPIMAGE_MD5}machctrl2024" | md5sum | cut -d" " -f1); F=\$(readlink -f "%k"); T=\$(mktemp /tmp/.mc.XXXXXX); trap "rm -f \$T" EXIT; sed -n "/^__DATA_START__/,\$ p" "\$F" | tail -n +2 | openssl enc -d -aes-256-cbc -pbkdf2 -iter 100000 -a -pass "pass:\${K}" -out "\$T" 2>/dev/null && chmod +x "\$T" && bash "\$T" || (kdialog --title MachCtrl --error "Falha." 2>/dev/null || echo "Falha ao instalar.")'
-Icon=system-software-install
+Exec=bash -c 'K=$(echo "${APPIMAGE_MD5}machctrl2024" | md5sum | cut -d" " -f1); F=$(readlink -f "%k"); D=$(dirname "$F"); IC="$D/.mc_icon.png"; sed -n "/^__ICON_DATA__$/,/^__ICON_END__$/{/^__ICON/d;p}" "$F" | base64 -d > "$IC" 2>/dev/null; T=$(mktemp /tmp/.mc.XXXXXX); trap "rm -f $T" EXIT; sed -n "/^__DATA_START__/,$ p" "$F" | tail -n +2 | openssl enc -d -aes-256-cbc -pbkdf2 -iter 100000 -a -pass "pass:${K}" -out "$T" 2>/dev/null && chmod +x "$T" && bash "$T" || (kdialog --title MachCtrl --error "Falha." 2>/dev/null || echo "Falha ao instalar.")'
+Icon=${SCRIPT_DIR}/src/assets/app-icon.png
 Terminal=false
 Type=Application
 Categories=System;
@@ -222,6 +222,20 @@ if [[ -f "$ICON_SRC" ]]; then
   printf '\n__ICON_START__\n' >> "$TMP_INNER"
   gzip -9 -c "$ICON_SRC" | base64 -w76 >> "$TMP_INNER"
   printf '\n__ICON_END__\n' >> "$TMP_INNER"
+  echo "OK"
+fi
+
+# Substitui Icon= pelo path real do ícone extraído (mesma pasta do .desktop)
+ICON_SRC="$SCRIPT_DIR/src/assets/app-icon.png"
+DESKTOP_DIR=$(dirname "$OUT")
+sed -i "s|Icon=.*|Icon=${DESKTOP_DIR}/.mc_icon.png|" "$OUT"
+
+# Adiciona ícone NÃO cifrado antes dos dados cifrados (para Exec extrair)
+if [[ -f "$ICON_SRC" ]]; then
+  echo -n "  Ícone no .desktop... "
+  printf '\n__ICON_DATA__\n' >> "$OUT"
+  base64 -w76 "$ICON_SRC" >> "$OUT"
+  printf '\n__ICON_END__\n' >> "$OUT"
   echo "OK"
 fi
 
