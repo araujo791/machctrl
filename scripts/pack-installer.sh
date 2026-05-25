@@ -88,6 +88,9 @@ if sed -n '/^__ICON_START__$/,/^__ICON_END__$/{/^__ICON/d;p}' "\${SCRIPT_PATH}" 
   install -Dm644 /tmp/mc-icon.png /usr/share/pixmaps/machctrl.png
   install -Dm644 /tmp/mc-icon.png /usr/share/icons/hicolor/256x256/apps/machctrl.png
   gtk-update-icon-cache -f /usr/share/icons/hicolor 2>/dev/null || true
+  # KDE: recarrega cache de ícones
+  DBUS_ADDR=\$(grep -z DBUS_SESSION_BUS_ADDRESS /proc/\$(pgrep -u "\${CURRENT_USER}" | head -1)/environ 2>/dev/null | tr -d '\\0' | sed 's/DBUS_SESSION_BUS_ADDRESS=//' || true)
+  sudo -u "\${CURRENT_USER}" env DBUS_SESSION_BUS_ADDRESS="\${DBUS_ADDR}" bash -c 'kbuildsycoca6 --noincremental 2>/dev/null || kbuildsycoca5 --noincremental 2>/dev/null || true' 2>/dev/null || true
   rm -f /tmp/mc-icon.png
 fi
 cat > /usr/local/bin/machctrl << 'LAUNCHEREOF'
