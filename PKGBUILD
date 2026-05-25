@@ -19,7 +19,9 @@ prepare() {
 
 build() {
   cd "$srcdir/$pkgname"
-  npm run build
+
+  # Força apenas a compilação de produção do Vite (evita o electron-builder quebrado)
+  npx vite build
 }
 
 package() {
