@@ -2,9 +2,9 @@
 pkgname=machctrl
 pkgver=2.0.0
 pkgrel=1
-pkgdesc="Monitor e Otimizador de Hardware para Linux — estilo Sensei"
+pkgdesc="Monitor e Otimizador de Hardware para Linux"
 arch=('x86_64')
-url="https://github.com/araujo791/solus-os-gateway"
+url="https://github.com/araujo791/machctrl"
 license=('MIT')
 depends=('electron' 'python' 'python-psutil' 'lm_sensors' 'dmidecode' 'lshw')
 makedepends=('npm' 'nodejs')
