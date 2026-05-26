@@ -144,9 +144,35 @@ yes "" | sensors-detect --auto &>/dev/null || true
 # ── 6. Menu .desktop ──────────────────────────────────────────────────────────
 step 6 "Entrada no menu"
 # Copia ícone para o sistema
-install -Dm644 "$SCRIPT_DIR/src/assets/app-icon.png" /usr/share/pixmaps/machctrl.png
-install -Dm644 "$SCRIPT_DIR/src/assets/app-icon.png" /usr/share/icons/hicolor/256x256/apps/machctrl.png
-gtk-update-icon-cache /usr/share/icons/hicolor 2>/dev/null || true
+# Instala icone — extrai do AppImage (funciona sem o repo)
+_APPIMAGE_PATH="$INSTALL_DIR/MachCtrl.AppImage"
+_ICON_EXTRACTED=false
+if [[ -f "$_APPIMAGE_PATH" ]]; then
+  # Monta AppImage temporariamente para extrair o ícone
+  _MOUNT=$(mktemp -d /tmp/mc-mount.XXXXXX)
+  "$_APPIMAGE_PATH" --appimage-mount "$_MOUNT" 2>/dev/null &
+  _MOUNT_PID=$!
+  sleep 1
+  for _ICON in "$_MOUNT"/resources/app-icon.png "$_MOUNT"/*.png "$_MOUNT"/app-icon.png; do
+    if [[ -f "$_ICON" ]]; then
+      install -Dm644 "$_ICON" /usr/share/pixmaps/machctrl.png
+      install -Dm644 "$_ICON" /usr/share/icons/hicolor/256x256/apps/machctrl.png
+      _ICON_EXTRACTED=true
+      break
+    fi
+  done
+  kill $_MOUNT_PID 2>/dev/null; wait $_MOUNT_PID 2>/dev/null || true
+  rm -rf "$_MOUNT"
+fi
+# Fallback: usa src/assets se existir (desenvolvimento local)
+if [[ "$_ICON_EXTRACTED" == "false" && -f "$SCRIPT_DIR/src/assets/app-icon.png" ]]; then
+  install -Dm644 "$SCRIPT_DIR/src/assets/app-icon.png" /usr/share/pixmaps/machctrl.png
+  install -Dm644 "$SCRIPT_DIR/src/assets/app-icon.png" /usr/share/icons/hicolor/256x256/apps/machctrl.png
+  _ICON_EXTRACTED=true
+fi
+if [[ "$_ICON_EXTRACTED" == "true" ]]; then
+  gtk-update-icon-cache /usr/share/icons/hicolor 2>/dev/null || true
+fi
 ok "Ícone instalado"
 
 cat > /usr/share/applications/machctrl.desktop << 'DESKTOP'
