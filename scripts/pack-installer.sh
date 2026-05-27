@@ -89,26 +89,26 @@ chmod +x "\${INSTALL_DIR}/MachCtrl.AppImage"
 cp "\${TMPDIR_INST}/machctrl_server.py" "\${INSTALL_DIR}/backend/machctrl_server.py"
 
 # Instala icone — extrai do AppImage instalado
-_APPIMAGE="${INSTALL_DIR}/MachCtrl.AppImage"
+_APPIMAGE="\${INSTALL_DIR}/MachCtrl.AppImage"
 _ICON_OK=false
-_MOUNT=$(mktemp -d /tmp/mc-mount.XXXXXX)
-"${_APPIMAGE}" --appimage-mount "${_MOUNT}" 2>/dev/null &
-_MPID=$!
+_MOUNT=\$(mktemp -d /tmp/mc-mount.XXXXXX)
+"\${_APPIMAGE}" --appimage-mount "\${_MOUNT}" 2>/dev/null &
+_MPID=\$!
 sleep 1
-for _IC in "${_MOUNT}"/resources/app-icon.png "${_MOUNT}"/*.png "${_MOUNT}"/app-icon.png; do
-  if [[ -f "${_IC}" ]]; then
-    install -Dm644 "${_IC}" /usr/share/pixmaps/machctrl.png
-    install -Dm644 "${_IC}" /usr/share/icons/hicolor/256x256/apps/machctrl.png
+for _IC in "\${_MOUNT}"/resources/app-icon.png "\${_MOUNT}"/*.png "\${_MOUNT}"/app-icon.png; do
+  if [[ -f "\${_IC}" ]]; then
+    install -Dm644 "\${_IC}" /usr/share/pixmaps/machctrl.png
+    install -Dm644 "\${_IC}" /usr/share/icons/hicolor/256x256/apps/machctrl.png
     _ICON_OK=true
     break
   fi
 done
-kill ${_MPID} 2>/dev/null; wait ${_MPID} 2>/dev/null || true
-rm -rf "${_MOUNT}"
-if [[ "${_ICON_OK}" == "true" ]]; then
+kill \${_MPID} 2>/dev/null; wait \${_MPID} 2>/dev/null || true
+rm -rf "\${_MOUNT}"
+if [[ "\${_ICON_OK}" == "true" ]]; then
   gtk-update-icon-cache -f /usr/share/icons/hicolor 2>/dev/null || true
-  DBUS_ADDR=\$(grep -z DBUS_SESSION_BUS_ADDRESS /proc/\$(pgrep -u "${CURRENT_USER}" | head -1)/environ 2>/dev/null | tr -d '\\0' | sed 's/DBUS_SESSION_BUS_ADDRESS=//' || true)
-  sudo -u "${CURRENT_USER}" env DBUS_SESSION_BUS_ADDRESS="${DBUS_ADDR}" bash -c 'kbuildsycoca6 --noincremental 2>/dev/null || kbuildsycoca5 --noincremental 2>/dev/null || true' 2>/dev/null || true
+  DBUS_ADDR=\$(grep -z DBUS_SESSION_BUS_ADDRESS /proc/\$(pgrep -u "\${CURRENT_USER}" | head -1)/environ 2>/dev/null | tr -d '\\0' | sed 's/DBUS_SESSION_BUS_ADDRESS=//' || true)
+  sudo -u "\${CURRENT_USER}" env DBUS_SESSION_BUS_ADDRESS="\${DBUS_ADDR}" bash -c 'kbuildsycoca6 --noincremental 2>/dev/null || kbuildsycoca5 --noincremental 2>/dev/null || true' 2>/dev/null || true
 fi
 
 cat > /usr/local/bin/machctrl << 'LAUNCHEREOF'
