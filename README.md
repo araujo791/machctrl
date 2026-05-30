@@ -1,88 +1,62 @@
-# MachCtrl Desktop v2.0
+# MachCtrl
 
-Monitor e Otimizador de Hardware para Linux —  feito para CachyOS / Arch Linux.
+Monitor e Otimizador de Hardware para Linux — CPU, GPU, RAM, Fans, Temperatura.
+
+![Plataforma](https://img.shields.io/badge/plataforma-Arch%20%7C%20CachyOS-blue)
+![DE](https://img.shields.io/badge/desktop-KDE%20%7C%20GNOME-orange)
+![License](https://img.shields.io/badge/license-MIT-green)
 
 ## Funcionalidades
 
-| Módulo | Recursos |
-|--------|----------|
-| **Visão Geral** | Dashboard completo com todos os sensores |
-| **CPU** | Por socket, por núcleo — dual ring (temp + atividade) |
-| **Memória** | Uso, slots físicos, fabricante, part number, velocidade |
-| **Discos** | Uso, I/O em tempo real, sparklines por disco |
-| **Ventiladores** | RPM, PWM, controle de modo (auto/manual/max) |
-| **Energia** | Perfis Economia / Equilibrado / Desempenho |
-| **Limpeza** | Cache pacman, órfãos, journal, temp, thumbnails |
-| **Benchmark** | CPU (crivo + ponto flutuante) + memória (largura de banda) |
+- Monitor de CPU com grid de threads estilo Task Manager
+- Controle de fans com curva de temperatura personalizada
+- Suporte a GPU AMD (amdgpu) e NVIDIA (nvidia-smi)
+- Monitor de GPU: uso, VRAM, temperatura, driver
+- Monitor de RAM, rede, armazenamento
+- Tarefas de limpeza do sistema (pip, npm, docker, flatpak, lixeira)
+- Backend como serviço systemd — inicia automaticamente no boot
 
-## Instalação (CachyOS / Arch Linux)
+## Requisitos
+
+- **Arch Linux** ou derivado (CachyOS, Manjaro, EndeavourOS...)
+- **KDE Plasma** ou **GNOME** (outros DEs podem funcionar mas não são oficialmente suportados)
+- GPU AMD: suportada nativamente via `amdgpu`
+- GPU NVIDIA: requer `nvidia-utils` e opcionalmente `nvidia-settings`
+
+## Instalação via AUR
 
 ```bash
-git clone https://github.com/araujo791/machctrl.git
-cd machctrl
+yay -S machctrl
+# ou
+paru -S machctrl
+```
+
+## Instalação manual
+
+```bash
+git clone https://github.com/araujo791/machctrl.git ~/machctrl
+cd ~/machctrl
 sudo bash install.sh
 ```
 
-O instalador cuida de tudo:
-- Instala dependências (`python-psutil`, `lm_sensors`, `dmidecode`,`electron`, `nodejs`)
-- Configura `sudoers` para `dmidecode` sem senha (leitura dos pentes de RAM)
-- Cria serviço `systemd` `machctrl-backend` (roda como root para acesso total ao hardware)
-- Cria entrada `.desktop` no menu de aplicativos
-- Gera `AppImage` e `.pkg.tar.zst` para instalação nativa
-
-## Desenvolvimento
+## Após instalar
 
 ```bash
-cd machctrl-desktop
-npm install
-npm run dev          # Abre Electron em modo dev (hot reload)
+machctrl                              # abre o app
+systemctl status machctrl-backend    # verifica o backend
+journalctl -u machctrl-backend -f    # logs em tempo real
 ```
 
-## Build manual
+## Desinstalar
 
 ```bash
-npm run build                  # Build Vite + Electron AppImage + pacman pkg
-npm run build:appimage         # Só AppImage
-npm run build:pacman           # Só .pkg.tar.zst (CachyOS/Arch)
-```
+# Via AUR
+yay -R machctrl
 
-## Arquitetura
-
-```
-machctrl-desktop/
-├── electron/
-│   ├── main.js          # Processo principal Electron (janela, IPC, backend spawn)
-│   └── preload.js       # Bridge segura renderer ↔ main
-├── src/
-│   ├── App.tsx           # Layout principal + roteamento de abas
-│   ├── hooks/
-│   │   └── useSensorData.ts   # WebSocket → dados de sensores em tempo real
-│   └── components/
-│       ├── sidebar/      # Titlebar (frameless) + Sidebar (navegação)
-│       ├── shared/       # RingGauge, CoreRing, Sparkline
-│       ├── panels/       # Overview, CPU, Memory, Disks, Fans, Power
-│       ├── benchmark/    # BenchmarkPanel
-│       └── cleaner/      # CleanerPanel
-├── backend/
-│   └── machctrl_server.py     # Backend Python (WebSocket, psutil, sensores)
-├── install.sh           # Instalador para CachyOS/Arch
-└── PKGBUILD             # Para empacotamento AUR
-```
-
-## Comandos úteis
-
-```bash
-systemctl status machctrl-backend        # Status do backend
-journalctl -u machctrl-backend -f        # Logs em tempo real
-systemctl restart machctrl-backend       # Reiniciar backend
-machctrl                                 # Abrir app pelo terminal
-```
-
-## Memória RAM — nota
-
-Para ver os detalhes dos módulos (fabricante, part number, velocidade), o `dmidecode` precisa de root.
-O instalador configura isso automaticamente via `sudoers`. Se os slots aparecerem vazios, verifique:
-
-```bash
-sudo dmidecode -t 17 | grep -A5 "Memory Device"
+# Manual
+sudo systemctl stop machctrl-backend
+sudo systemctl disable machctrl-backend
+sudo rm -rf /opt/machctrl /usr/local/bin/machctrl
+sudo rm /etc/systemd/system/machctrl-backend.service
+sudo rm /usr/share/applications/machctrl.desktop
 ```

@@ -23,6 +23,10 @@ optdepends=(
     'nvidia-utils: suporte a GPU NVIDIA (fan control, temperatura)'
     'nvidia-settings: controle avançado de fan NVIDIA'
 )
+
+# ⚠️  Interface gráfica requer ambiente de desktop com suporte a Electron:
+#     KDE Plasma ou GNOME são os ambientes testados e suportados.
+#     Ambientes minimalistas (i3, sway, etc) podem exigir configuração adicional.
 provides=('machctrl')
 conflicts=('machctrl-git' 'machctrl-bin')
 install=machctrl.install
