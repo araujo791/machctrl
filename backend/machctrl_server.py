@@ -1631,6 +1631,17 @@ class SensorServer:
         for label, info in self.fan_sensors.items():
             rpm = read_sensor_file(info["input"])
 
+            # Se fan{idx}_enable=0, a fan está desabilitada pelo driver — RPM é fantasma
+            _inp_ck = info.get("input", "")
+            _fen_path = re.sub(r"fan(\d+)_input$", r"fan\1_enable", _inp_ck)
+            if os.path.exists(_fen_path):
+                try:
+                    with open(_fen_path) as _fen:
+                        if _fen.read().strip() == "0":
+                            rpm = 0
+                except Exception:
+                    pass
+
             # Deriva o pwm_path do fan: mesmo hwmon dir, mesmo índice
             inp = info.get("input", "")
             hwmon_dir = os.path.dirname(inp)
