@@ -1,85 +1,113 @@
-# Maintainer: MachCtrl <machctrl@linux>
+# Maintainer: araujo791 <https://github.com/araujo791>
 pkgname=machctrl
 pkgver=2.0.0
 pkgrel=1
-pkgdesc="Monitor e Otimizador de Hardware para Linux"
+pkgdesc="Monitor e Otimizador de Hardware para Linux — CPU, GPU, RAM, Fans, Temperatura"
 arch=('x86_64')
 url="https://github.com/araujo791/machctrl"
 license=('MIT')
-depends=('electron' 'python' 'python-psutil' 'lm_sensors' 'dmidecode')
-makedepends=('npm' 'nodejs' 'git')
-options=(!strip)
-source=("git+${url}.git")
+depends=(
+    'python'
+    'python-psutil'
+    'python-websockets'
+    'lm_sensors'
+    'dmidecode'
+    'fuse2'
+    'nodejs'
+)
+makedepends=(
+    'npm'
+    'git'
+)
+optdepends=(
+    'nvidia-utils: suporte a GPU NVIDIA (fan control, temperatura)'
+    'nvidia-settings: controle avançado de fan NVIDIA'
+)
+provides=('machctrl')
+conflicts=('machctrl-git' 'machctrl-bin')
+install=machctrl.install
+source=("$pkgname-$pkgver.tar.gz::https://github.com/araujo791/machctrl/archive/refs/heads/main.tar.gz")
 sha256sums=('SKIP')
 
-prepare() {
-  cd "$srcdir/$pkgname"
-  npm ci || npm install
-}
-
 build() {
-  cd "$srcdir/$pkgname"
-
-  # Força apenas a compilação de produção do Vite (evita o electron-builder quebrado)
-  npx vite build
+    cd "$srcdir/machctrl-main"
+    npm install --prefer-offline
+    npm run build:appimage
 }
 
 package() {
-  cd "$srcdir/$pkgname"
+    cd "$srcdir/machctrl-main"
 
-  # Criação do diretório /opt/machctrl
-  install -dm755 "$pkgdir/opt/machctrl"
+    # Diretório de instalação
+    install -dm755 "$pkgdir/opt/machctrl/backend"
 
-  # Copia arquivos necessários de produção para o diretório final
-  cp -r dist electron backend node_modules package.json "$pkgdir/opt/machctrl/"
+    # AppImage
+    local appimage
+    appimage=$(find dist-electron -name '*.AppImage' | head -1)
+    install -Dm755 "$appimage" "$pkgdir/opt/machctrl/MachCtrl.AppImage"
 
-  # Garante permissão de execução no script do servidor Python do Systemd
-  chmod +x "$pkgdir/opt/machctrl/backend/machctrl_server.py"
+    # Backend Python
+    install -Dm644 backend/machctrl_server.py "$pkgdir/opt/machctrl/backend/machctrl_server.py"
 
-  # Launcher binário com suporte a Wayland/X11 dinâmico
-  install -dm755 "$pkgdir/usr/bin"
-  cat > "$pkgdir/usr/bin/machctrl" << 'EOF'
+    # Launcher
+    install -dm755 "$pkgdir/usr/local/bin"
+    cat > "$pkgdir/usr/local/bin/machctrl" << 'LAUNCHER'
 #!/bin/bash
-if [ "$XDG_SESSION_TYPE" = "wayland" ]; then
-    exec electron /opt/machctrl/electron/main.js --enable-features=UseOzonePlatform --ozone-platform=wayland "$@"
-else
-    exec electron /opt/machctrl/electron/main.js "$@"
-fi
-EOF
-  chmod +x "$pkgdir/usr/bin/machctrl"
+exec /opt/machctrl/MachCtrl.AppImage "$@"
+LAUNCHER
+    chmod 755 "$pkgdir/usr/local/bin/machctrl"
 
-  # Systemd service
-  install -dm755 "$pkgdir/usr/lib/systemd/system"
-  cat > "$pkgdir/usr/lib/systemd/system/machctrl-backend.service" << EOF
+    # Ícone
+    if [[ -f src/assets/app-icon.png ]]; then
+        install -Dm644 src/assets/app-icon.png \
+            "$pkgdir/usr/share/pixmaps/machctrl.png"
+        install -Dm644 src/assets/app-icon.png \
+            "$pkgdir/usr/share/icons/hicolor/256x256/apps/machctrl.png"
+    fi
+
+    # .desktop
+    install -dm755 "$pkgdir/usr/share/applications"
+    cat > "$pkgdir/usr/share/applications/machctrl.desktop" << 'DESKTOP'
+[Desktop Entry]
+Name=MachCtrl
+GenericName=Monitor de Hardware
+Comment=Monitor e Otimizador de Hardware para Linux
+Exec=/usr/local/bin/machctrl
+Icon=machctrl
+Terminal=false
+Type=Application
+Categories=System;Monitor;
+Keywords=hardware;cpu;gpu;ram;monitor;temperatura;fans;
+StartupNotify=true
+DESKTOP
+
+    # Serviço systemd
+    install -dm755 "$pkgdir/usr/lib/systemd/system"
+    cat > "$pkgdir/usr/lib/systemd/system/machctrl-backend.service" << 'SERVICE'
 [Unit]
 Description=MachCtrl Backend
 After=network.target
+Wants=lm-sensors.service
 
 [Service]
 Type=simple
 ExecStart=/usr/bin/python3 /opt/machctrl/backend/machctrl_server.py
+WorkingDirectory=/opt/machctrl
 Restart=on-failure
+RestartSec=5
 User=root
 Environment=PYTHONUNBUFFERED=1
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=machctrl
 
 [Install]
 WantedBy=multi-user.target
-EOF
+SERVICE
 
-  # Desktop entry
-  install -dm755 "$pkgdir/usr/share/applications"
-  cat > "$pkgdir/usr/share/applications/machctrl.desktop" << EOF
-[Desktop Entry]
-Name=MachCtrl
-Comment=Monitor e Otimizador de Hardware
-Exec=machctrl
-Terminal=false
-Type=Application
-Categories=System;Monitor;
-EOF
-
-  # Cópia do arquivo de licença MIT do repositório
-  if [ -f "LICENSE" ]; then
-    install -Dm644 "LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
-  fi
+    # sudoers para dmidecode (leitura de RAM)
+    install -dm750 "$pkgdir/etc/sudoers.d"
+    echo "root ALL=(ALL) NOPASSWD: /usr/sbin/dmidecode" \
+        > "$pkgdir/etc/sudoers.d/machctrl"
+    chmod 440 "$pkgdir/etc/sudoers.d/machctrl"
 }
