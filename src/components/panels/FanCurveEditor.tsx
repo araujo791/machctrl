@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 
+import { t } from '../../i18n'
+
 const DEFAULT_CURVE = [
   { temp: 30, pct: 30 },
   { temp: 50, pct: 40 },
@@ -114,11 +116,11 @@ export function FanCurveEditor({ fan, gpuTemp, savedCurve, onApply, onReset, onC
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <div style={{ fontSize: 14, fontWeight: 700, color: 'hsl(var(--text))' }}>
-              Curva de Fan — {fan.label}
+              {t('fanCurveTitle')} — {fan.label}
             </div>
             <div style={{ fontSize: 11, color: 'hsl(var(--muted))', marginTop: 2 }}>
-              GPU: <span style={{ color: 'hsl(var(--orange))', fontWeight: 600 }}>{gpuTemp}°C</span>
-              &nbsp;→ Fan: <span style={{ color: 'hsl(var(--accent))', fontWeight: 600 }}>{currentPct}%</span>
+              {t('gpuLabel')}: <span style={{ color: 'hsl(var(--orange))', fontWeight: 600 }}>{gpuTemp}°C</span>
+              &nbsp;→ {t('fanLabel')}: <span style={{ color: 'hsl(var(--accent))', fontWeight: 600 }}>{currentPct}%</span>
             </div>
           </div>
           <button onClick={onClose} style={{
@@ -201,7 +203,7 @@ export function FanCurveEditor({ fan, gpuTemp, savedCurve, onApply, onReset, onC
         {/* Tabela de pontos */}
         <div>
           <div style={{ fontSize: 11, color: 'hsl(var(--muted))', marginBottom: 8 }}>
-            Pontos de controle — arraste no gráfico ou edite abaixo:
+            {t('controlPoints')}
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 6 }}>
             {pts.map((p, i) => (
@@ -211,9 +213,9 @@ export function FanCurveEditor({ fan, gpuTemp, savedCurve, onApply, onReset, onC
                 borderRadius: 10, padding: '10px 6px',
                 display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
               }}>
-                <div style={{ fontSize: 9, color: 'hsl(var(--muted))' }}>Ponto {i+1}</div>
+                <div style={{ fontSize: 9, color: 'hsl(var(--muted))' }}>{t('point')} {i+1}</div>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                  <label style={{ fontSize: 9, color: 'hsl(var(--muted))' }}>Temp °C</label>
+                  <label style={{ fontSize: 9, color: 'hsl(var(--muted))' }}>{t('tempC')}</label>
                   <input type="number" min={i > 0 ? pts[i-1].temp+1 : 20} max={i < pts.length-1 ? pts[i+1].temp-1 : 100}
                     value={p.temp}
                     onChange={e => {
@@ -230,7 +232,7 @@ export function FanCurveEditor({ fan, gpuTemp, savedCurve, onApply, onReset, onC
                   />
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                  <label style={{ fontSize: 9, color: 'hsl(var(--muted))' }}>Fan %</label>
+                  <label style={{ fontSize: 9, color: 'hsl(var(--muted))' }}>{t('fanPct')}</label>
                   <input type="number" min={0} max={100}
                     value={p.pct}
                     onChange={e => {
@@ -259,19 +261,19 @@ export function FanCurveEditor({ fan, gpuTemp, savedCurve, onApply, onReset, onC
               display: 'flex', flexDirection: 'column', gap: 6,
             }}>
               <div style={{ fontSize: 11, color: 'hsl(var(--orange))', fontWeight: 600, textAlign: 'center' }}>
-                ⚠️ A curva atual será perdida e as fans voltarão ao modo automático. Confirmar?
+                {t('resetWarning')}
               </div>
               <div style={{ display: 'flex', gap: 6 }}>
                 <button onClick={() => setConfirmReset(false)} style={{
                   flex: 1, padding: '6px 0', borderRadius: 8, fontSize: 11, fontWeight: 600,
                   cursor: 'pointer', border: '1px solid hsl(var(--border))',
                   background: 'transparent', color: 'hsl(var(--muted))',
-                }}>Cancelar</button>
+                }}>{t('cancel')}</button>
                 <button onClick={() => { setConfirmReset(false); setPts(DEFAULT_CURVE); onReset() }} style={{
                   flex: 1, padding: '6px 0', borderRadius: 8, fontSize: 11, fontWeight: 700,
                   cursor: 'pointer', border: 'none',
                   background: 'hsl(var(--orange))', color: '#000',
-                }}>Confirmar reset</button>
+                }}>{t('confirmReset')}</button>
               </div>
             </div>
           ) : (
@@ -280,7 +282,7 @@ export function FanCurveEditor({ fan, gpuTemp, savedCurve, onApply, onReset, onC
               cursor: 'pointer', border: '1px solid hsl(var(--border))',
               background: 'transparent', color: 'hsl(var(--muted))',
             }}>
-              Resetar padrão
+              {t('resetDefault')}
             </button>
           )}
           <button onClick={() => onApply(pts)} style={{
@@ -288,7 +290,7 @@ export function FanCurveEditor({ fan, gpuTemp, savedCurve, onApply, onReset, onC
             cursor: 'pointer', border: 'none',
             background: 'hsl(var(--accent))', color: '#000',
           }}>
-            ✓ Aplicar Curva
+            {t('applyCurve')}
           </button>
         </div>
       </div>

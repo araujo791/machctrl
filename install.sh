@@ -32,6 +32,44 @@ if [[ $EUID -ne 0 ]]; then
   fail "Execute como root: ${C_CYAN}sudo bash install.sh${C_RESET}"; exit 1
 fi
 
+# ── Verificação de Desktop Environment ────────────────────────────────────────
+detect_de() {
+  local de="${XDG_CURRENT_DESKTOP:-${DESKTOP_SESSION:-${GDMSESSION:-unknown}}}"
+  echo "${de,,}"  # lowercase
+}
+
+DE=$(detect_de)
+SUPPORTED=false
+for supported_de in "kde" "plasma" "gnome" "unity" "budgie" "cinnamon"; do
+  if [[ "$DE" == *"$supported_de"* ]]; then
+    SUPPORTED=true
+    break
+  fi
+done
+
+if [[ "$SUPPORTED" == false ]]; then
+  echo -e "\n${C_RED}${C_BOLD}"
+  echo "  ╔══════════════════════════════════════════════════════╗"
+  echo "  ║   ✗  Desktop Environment não suportado              ║"
+  echo "  ╠══════════════════════════════════════════════════════╣"
+  echo "  ║                                                      ║"
+  echo "  ║   Detectado: ${DE:-unknown}"
+  echo "  ║                                                      ║"
+  echo "  ║   MachCtrl foi testado e é suportado apenas em:     ║"
+  echo "  ║     • KDE Plasma                                     ║"
+  echo "  ║     • GNOME                                          ║"
+  echo "  ║                                                      ║"
+  echo "  ║   Outros ambientes podem não funcionar corretamente. ║"
+  echo "  ║   A instalação foi cancelada.                        ║"
+  echo "  ╚══════════════════════════════════════════════════════╝"
+  echo -e "${C_RESET}"
+  exit 1
+fi
+
+echo -e "   ${C_GREEN}✓${C_RESET} Desktop Environment: ${C_BOLD}${DE}${C_RESET} — suportado\n"
+
+
+
 # ── 1. Dependências ───────────────────────────────────────────────────────────
 step 1 "Instalando dependências do sistema"
 for pkg in python python-psutil python-websockets lm_sensors dmidecode nodejs npm fuse2 fuse3; do

@@ -13,11 +13,12 @@ import { useSensorData } from './hooks/useSensorData'
 import { useTheme } from './hooks/useTheme'
 import { useState } from 'react'
 import appIconUrl from './assets/app-icon.png'
+import { t } from './i18n'
 
 const PAGE_TITLES: Record<Tab, string> = {
-  overview:'Visão Geral', cpu:'CPU', memory:'Memória', disks:'Discos',
-  fans:'Fans', power:'Perfil de Energia', cleaner:'Limpeza',
-  benchmark:'Benchmark', about:'Sobre',
+  overview: t('overview'), cpu: t('cpu'), memory: t('memory'), disks: t('disks'),
+  fans: t('fans'), power: t('power'), cleaner: t('cleaner'),
+  benchmark: t('benchmark'), about: t('about'),
 }
 
 export function App() {

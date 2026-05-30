@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { FanCurveEditor } from './FanCurveEditor'
+import { t } from '../../i18n'
 import fanBladeUrl from '../../assets/fan-blade.png'
 import type { SensorData } from '../../hooks/useSensorData'
 
@@ -80,7 +81,7 @@ function FanCard({ fan, onCommand, gpuTemp, fanCurves }: { fan: any; onCommand: 
     }
     if (m === 'auto') {
       onCommand({ action: 'set_fan_auto', fan: fan.name })
-      setFeedback('Automático')
+      setFeedback(t('auto'))
     } else if (m === 'max') {
       onCommand({ action: 'set_fan_speed', fan: fan.name, speed: 100 })
       setFeedback('Máximo — 100%')
@@ -100,7 +101,7 @@ function FanCard({ fan, onCommand, gpuTemp, fanCurves }: { fan: any; onCommand: 
     onCommand({ action: 'set_fan_curve', fan: fan.name, curve })
     setMode('curve')
     setShowCurve(false)
-    setFeedback('Curva aplicada')
+    setFeedback(t('curve'))
     setTimeout(() => setFeedback(''), 2500)
   }
 
@@ -155,7 +156,7 @@ function FanCard({ fan, onCommand, gpuTemp, fanCurves }: { fan: any; onCommand: 
             {feedback
               ? <span style={{ color: 'hsl(var(--green))' }}>✓ {feedback}</span>
               : <span>modo: <span style={{ color: modeColor, fontWeight: 600 }}>
-                  {mode === 'auto' ? 'Automático' : mode === 'max' ? 'Máximo' : mode === 'curve' ? 'Curva' : 'Manual'}
+                  {mode === 'auto' ? t('auto') : mode === 'max' ? t('max') : mode === 'curve' ? t('curve') : t('manual')}
                 </span></span>
             }
           </div>
@@ -258,7 +259,7 @@ function FanCard({ fan, onCommand, gpuTemp, fanCurves }: { fan: any; onCommand: 
           onReset={() => {
             onCommand({ action: 'set_fan_auto', fan: fan.name })
             setMode('auto')
-            setFeedback('Resetado — Auto')
+            setFeedback(`${t('resetDefault')} — ${t('auto')}`)
             setShowCurve(false)
             setTimeout(() => setFeedback(''), 2500)
           }}
