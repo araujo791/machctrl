@@ -1,7 +1,9 @@
-// Detecta idioma do sistema (Electron expõe via navigator.language)
+// Detecta idioma: localStorage > sistema
 function detectLang(): 'pt' | 'en' {
-  const lang = (navigator.language || 'en').toLowerCase()
-  if (lang.startsWith('pt')) return 'pt'
+  const saved = localStorage.getItem('machctrl-lang')
+  if (saved === 'pt' || saved === 'en') return saved
+  const sys = (navigator.language || 'en').toLowerCase()
+  if (sys.startsWith('pt')) return 'pt'
   return 'en'
 }
 

@@ -14,6 +14,7 @@ import { useTheme } from './hooks/useTheme'
 import { useState } from 'react'
 import appIconUrl from './assets/app-icon.png'
 import { t } from './i18n'
+import { useLang } from './hooks/useLang'
 
 const PAGE_TITLES: Record<Tab, string> = {
   overview: t('overview'), cpu: t('cpu'), memory: t('memory'), disks: t('disks'),
@@ -25,6 +26,7 @@ export function App() {
   const [tab, setTab] = useState<Tab>('overview')
   const { state, data, history, tempHistory, sendCommand, addMessageListener } = useSensorData()
   const { theme, toggle } = useTheme()
+  const { currentLang, toggle: toggleLang } = useLang()
   const connected = state === 'connected'
 
   // Aplica tema ao body
@@ -34,7 +36,7 @@ export function App() {
 
   return (
     <div style={{ display:'flex', flexDirection:'column', height:'100vh', overflow:'hidden', background:'hsl(var(--bg))' }}>
-      <Titlebar connected={connected} theme={theme} onToggleTheme={toggle} />
+      <Titlebar connected={connected} theme={theme} onToggleTheme={toggle} onToggleLang={toggleLang} currentLang={currentLang} />
 
       <div style={{ display:'flex', flex:1, overflow:'hidden' }}>
         <Sidebar active={tab} onChange={setTab} />

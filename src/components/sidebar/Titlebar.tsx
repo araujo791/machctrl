@@ -2,14 +2,17 @@ import { useState, useEffect } from 'react'
 import { Minus, Square, X, Maximize2, Sun, Moon } from 'lucide-react'
 import appIconUrl from '../../assets/app-icon.png'
 import type { Theme } from '../../hooks/useTheme'
+import { lang, t } from '../../i18n'
 
 interface TitlebarProps {
   connected?: boolean
   theme: Theme
   onToggleTheme: () => void
+  onToggleLang: () => void
+  currentLang: 'pt' | 'en'
 }
 
-export function Titlebar({ connected = false, theme, onToggleTheme }: TitlebarProps) {
+export function Titlebar({ connected = false, theme, onToggleTheme, onToggleLang, currentLang }: TitlebarProps) {
   const [isMaximized, setIsMaximized] = useState(false)
 
   useEffect(() => {
@@ -68,12 +71,17 @@ export function Titlebar({ connected = false, theme, onToggleTheme }: TitlebarPr
           boxShadow: connected ? '0 0 6px hsl(var(--green) / 0.8)' : 'none',
         }} />
         <span style={{ fontSize: 11, color: 'hsl(var(--muted))' }}>
-          {connected ? 'Conectado' : 'Desconectado'}
+          {connected ? t('connected') : t('disconnected')}
         </span>
       </div>
 
       {/* Right: theme + window controls */}
       <div className="no-drag" style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+        <WinBtn onClick={onToggleLang} hoverColor="hsl(var(--accent))" title={currentLang === 'pt' ? 'Switch to English' : 'Mudar para Português'}>
+          <span style={{ fontSize: 11, fontWeight: 700, fontFamily: 'JetBrains Mono' }}>
+            {currentLang === 'pt' ? 'EN' : 'PT'}
+          </span>
+        </WinBtn>
         <WinBtn onClick={onToggleTheme} hoverColor="hsl(var(--accent))">
           {theme === 'dark' ? <Sun size={12} /> : <Moon size={12} />}
         </WinBtn>
