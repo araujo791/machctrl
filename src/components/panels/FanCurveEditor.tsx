@@ -15,6 +15,7 @@ interface Props {
   gpuTemp: number
   savedCurve?: Point[]
   onApply: (curve: Point[]) => void
+  onReset: () => void
   onClose: () => void
 }
 
@@ -28,7 +29,7 @@ function toY(pct: number)  { return PAD.t + ((100 - pct) / 100) * CH }
 function fromX(x: number)  { return Math.round(Math.min(100, Math.max(20, 20 + ((x - PAD.l) / CW) * 80))) }
 function fromY(y: number)  { return Math.round(Math.min(100, Math.max(0,  100 - ((y - PAD.t) / CH) * 100))) }
 
-export function FanCurveEditor({ fan, gpuTemp, savedCurve, onApply, onClose }: Props) {
+export function FanCurveEditor({ fan, gpuTemp, savedCurve, onApply, onReset, onClose }: Props) {
   const [pts, setPts] = useState<Point[]>(savedCurve?.length === 5 ? savedCurve : DEFAULT_CURVE)
   const [drag, setDrag] = useState<number | null>(null)
   const svgRef = useRef<SVGSVGElement>(null)
@@ -250,7 +251,7 @@ export function FanCurveEditor({ fan, gpuTemp, savedCurve, onApply, onClose }: P
 
         {/* Botões */}
         <div style={{ display: 'flex', gap: 8 }}>
-          <button onClick={() => setPts(DEFAULT_CURVE)} style={{
+          <button onClick={() => { setPts(DEFAULT_CURVE); onReset() }} style={{
             flex: 1, padding: '10px 0', borderRadius: 10, fontSize: 12, fontWeight: 600,
             cursor: 'pointer', border: '1px solid hsl(var(--border))',
             background: 'transparent', color: 'hsl(var(--muted))',

@@ -255,6 +255,13 @@ function FanCard({ fan, onCommand, gpuTemp, fanCurves }: { fan: any; onCommand: 
           gpuTemp={gpuTemp ?? 0}
           savedCurve={savedCurve}
           onApply={handleApplyCurve}
+          onReset={() => {
+            onCommand({ action: 'set_fan_auto', fan: fan.name })
+            setMode('auto')
+            setFeedback('Resetado — Auto')
+            setShowCurve(false)
+            setTimeout(() => setFeedback(''), 2500)
+          }}
           onClose={() => setShowCurve(false)}
         />
       )}
