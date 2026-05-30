@@ -448,6 +448,85 @@ def get_gpu_info():
     return info
 
 
+
+def nvidia_get_fan_info():
+    """Retorna lista de fans NVIDIA via nvidia-smi. Cada item: {index, rpm, pct, temp, name}"""
+    try:
+        r = subprocess.run(
+            ["nvidia-smi",
+             "--query-gpu=index,fan.speed,temperature.gpu,name",
+             "--format=csv,noheader,nounits"],
+            capture_output=True, text=True, timeout=3
+        )
+        if r.returncode != 0 or not r.stdout.strip():
+            return []
+        fans = []
+        for line in r.stdout.strip().splitlines():
+            parts = [p.strip() for p in line.split(",")]
+            if len(parts) < 4:
+                continue
+            try:
+                idx  = int(parts[0])
+                pct  = int(parts[1]) if parts[1] not in ("N/A", "[N/A]") else 0
+                temp = float(parts[2]) if parts[2] not in ("N/A", "[N/A]") else 0
+                name = parts[3]
+                fans.append({"index": idx, "pct": pct, "temp": temp, "name": name})
+            except ValueError:
+                continue
+        return fans
+    except Exception:
+        return []
+
+
+def nvidia_set_fan_speed(gpu_index: int, speed_pct: int) -> bool:
+    """Define velocidade do fan NVIDIA. Requer nvidia-settings ou nvidia-smi com fan control."""
+    speed_pct = max(0, min(100, speed_pct))
+    try:
+        # Habilita controle manual primeiro
+        subprocess.run(
+            ["nvidia-smi", "-i", str(gpu_index), "--fan-control=1"],
+            capture_output=True, timeout=3
+        )
+        r = subprocess.run(
+            ["nvidia-smi", "-i", str(gpu_index), f"--assign-gpu-fan-speed=0={speed_pct}"],
+            capture_output=True, text=True, timeout=3
+        )
+        if r.returncode == 0:
+            return True
+        # Fallback: nvidia-settings (requer DISPLAY)
+        env = {"DISPLAY": ":0", "XAUTHORITY": "/run/user/1000/gdm/Xauthority"}
+        env.update(__import__("os").environ)
+        r2 = subprocess.run(
+            ["nvidia-settings", "-a",
+             f"[gpu:{gpu_index}]/GPUFanControlState=1",
+             "-a", f"[fan:{gpu_index}]/GPUTargetFanSpeed={speed_pct}"],
+            capture_output=True, text=True, timeout=3, env=env
+        )
+        return r2.returncode == 0
+    except Exception:
+        return False
+
+
+def nvidia_set_fan_auto(gpu_index: int) -> bool:
+    """Restaura controle automático de fan NVIDIA."""
+    try:
+        r = subprocess.run(
+            ["nvidia-smi", "-i", str(gpu_index), "--fan-control=0"],
+            capture_output=True, text=True, timeout=3
+        )
+        if r.returncode == 0:
+            return True
+        env = {"DISPLAY": ":0", "XAUTHORITY": "/run/user/1000/gdm/Xauthority"}
+        env.update(__import__("os").environ)
+        r2 = subprocess.run(
+            ["nvidia-settings", "-a", f"[gpu:{gpu_index}]/GPUFanControlState=0"],
+            capture_output=True, text=True, timeout=3, env=env
+        )
+        return r2.returncode == 0
+    except Exception:
+        return False
+
+
 def get_network_info(prev_counters=None, prev_time=None):
     """Retorna adaptadores de rede com velocidade de upload/download atual."""
     try:
@@ -1262,6 +1341,7 @@ class SensorServer:
         self.fan_modes  = {}    # fan_id -> "auto"|"manual"|"max"|"curve"
         self.fan_speeds = {}    # fan_id -> 0-100
         self.fan_curves = {}    # fan_id -> [{temp, pct}, ...] 5 pontos
+        self.nvidia_fans  = []    # lista retornada por nvidia_get_fan_info()
         self.config_path = "/etc/machctrl/settings.json"
 
         self.detect_hardware()
@@ -1306,6 +1386,19 @@ class SensorServer:
                                         f.write("1")
                                 except Exception:
                                     pass
+                # Restaura modos NVIDIA
+                for fan_id, mode in list(self.fan_modes.items()):
+                    if not fan_id.startswith("nvidia_gpu"):
+                        continue
+                    idx = int(fan_id.replace("nvidia_gpu", ""))
+                    if mode == "auto":
+                        nvidia_set_fan_auto(idx)
+                    elif mode in ("manual", "max"):
+                        speed = self.fan_speeds.get(fan_id, 100) if mode == "manual" else 100
+                        nvidia_set_fan_speed(idx, speed)
+                    elif mode == "curve":
+                        # Habilita controle manual; curva será aplicada no próximo ciclo
+                        nvidia_set_fan_speed(idx, 50)
                 print(f"⚙️  Configurações carregadas de {self.config_path}")
         except Exception as e:
             print(f"⚠️  Configurações não carregadas: {e}")
@@ -1441,6 +1534,16 @@ class SensorServer:
             for i, (name, info) in enumerate(self.pwm_controls.items(), 1):
                 self.fan_index_map[f"fan{i}"] = name
                 print(f"   • fan{i} -> {name}: {info['pwm']}")
+
+        # Detecta fans NVIDIA
+        nv = nvidia_get_fan_info()
+        if nv:
+            self.nvidia_fans = nv
+            print(f"\n🎮 NVIDIA GPUs detectadas: {len(nv)}")
+            for f in nv:
+                print(f"   • GPU {f['index']}: {f['name']} — fan {f['pct']}%")
+        else:
+            self.nvidia_fans = []
 
         self._classify_temp_sensors()
         print(f"\n🌡️  Mapa de temperaturas:")
@@ -1737,6 +1840,27 @@ class SensorServer:
                 "mode":          _mode,
             })
 
+        # Fans NVIDIA — atualiza dados e injeta na lista
+        if self.nvidia_fans:
+            nv_live = nvidia_get_fan_info()
+            for nv in nv_live:
+                fan_id  = f"nvidia_gpu{nv['index']}"
+                _mode   = self.fan_modes.get(fan_id, "auto")
+                if _mode == "auto_managed":
+                    _mode = "auto"
+                fan_list.append({
+                    "label":         f"{nv['name']} — Fan",
+                    "name":          fan_id,
+                    "label_full":    f"nvidia/gpu{nv['index']}",
+                    "rpm":           0,   # nvidia-smi não expõe RPM, só %
+                    "speed_percent": nv["pct"],
+                    "has_pwm":       True,
+                    "mode":          _mode,
+                    "nvidia":        True,
+                    "nvidia_index":  nv["index"],
+                    "nvidia_temp":   nv["temp"],
+                })
+
         # CPU
         cpu_info = cpu_info_pre  # já calculado acima com per-thread usages
 
@@ -1928,25 +2052,37 @@ class SensorServer:
         if action == "set_fan_speed":
             fan_key = cmd.get("fan", "")
             speed   = cmd.get("speed", 50)
-            pwm_path, pwm_enable = resolve_fan_ctrl(fan_key)
 
-
-            if pwm_path:
-                success = set_fan_speed(pwm_path, pwm_enable, speed)
+            # NVIDIA
+            if fan_key.startswith("nvidia_gpu"):
+                idx = int(fan_key.replace("nvidia_gpu", ""))
+                success = nvidia_set_fan_speed(idx, speed)
                 if success:
                     self.fan_modes[fan_key]  = "manual" if speed < 100 else "max"
                     self.fan_speeds[fan_key] = speed
                     self._save_settings()
-
                 await websocket.send(json.dumps({
                     "type": "command_result", "action": "set_fan_speed",
                     "success": success, "fan": fan_key, "speed": speed,
                 }))
             else:
-                await websocket.send(json.dumps({
-                    "type": "error",
-                    "message": f"Fan '{fan_key}' não encontrado. fan_index_map={self.fan_index_map}"
-                }))
+                pwm_path, pwm_enable = resolve_fan_ctrl(fan_key)
+                if pwm_path:
+                    success = set_fan_speed(pwm_path, pwm_enable, speed)
+                    if success:
+                        self.fan_modes[fan_key]  = "manual" if speed < 100 else "max"
+                        self.fan_speeds[fan_key] = speed
+                        self._save_settings()
+
+                    await websocket.send(json.dumps({
+                        "type": "command_result", "action": "set_fan_speed",
+                        "success": success, "fan": fan_key, "speed": speed,
+                    }))
+                else:
+                    await websocket.send(json.dumps({
+                        "type": "error",
+                        "message": f"Fan '{fan_key}' não encontrado. fan_index_map={self.fan_index_map}"
+                    }))
 
         elif action == "set_fan_curve":
             fan_key = cmd.get("fan", "")
@@ -1980,9 +2116,24 @@ class SensorServer:
 
         elif action == "set_fan_auto":
             fan_key = cmd.get("fan", "")
-            pwm_path, pwm_enable = resolve_fan_ctrl(fan_key)
 
-            if not pwm_path:
+            # NVIDIA
+            if fan_key.startswith("nvidia_gpu"):
+                idx = int(fan_key.replace("nvidia_gpu", ""))
+                success = nvidia_set_fan_auto(idx)
+                if success:
+                    self.fan_modes.pop(fan_key, None)
+                    self.fan_speeds.pop(fan_key, None)
+                    self.fan_curves.pop(fan_key, None)
+                    self._save_settings()
+                await websocket.send(json.dumps({
+                    "type": "command_result", "action": "set_fan_auto",
+                    "success": success, "fan": fan_key,
+                }))
+            else:
+                pwm_path, pwm_enable = resolve_fan_ctrl(fan_key)
+
+            if not fan_key.startswith("nvidia_gpu") and not pwm_path:
                 await websocket.send(json.dumps({
                     "type": "command_result", "action": "set_fan_auto",
                     "success": False, "fan": fan_key,
@@ -2501,6 +2652,33 @@ class SensorServer:
                             f.write(str(pwm_val))
                     except Exception:
                         pass
+
+                # Fans NVIDIA em modo curva
+                if self.nvidia_fans:
+                    nv_live = nvidia_get_fan_info()
+                    for nv in nv_live:
+                        fan_id = f"nvidia_gpu{nv['index']}"
+                        mode   = self.fan_modes.get(fan_id, "auto")
+                        if mode != "curve":
+                            continue
+                        curve = self.fan_curves.get(fan_id, [])
+                        if not curve:
+                            continue
+                        gpu_temp = nv["temp"]
+                        if gpu_temp <= 0:
+                            continue
+                        curve_s = sorted(curve, key=lambda p: p["temp"])
+                        curve_pct = curve_s[0]["pct"]
+                        for i in range(len(curve_s) - 1):
+                            t0, p0 = curve_s[i]["temp"],   curve_s[i]["pct"]
+                            t1, p1 = curve_s[i+1]["temp"], curve_s[i+1]["pct"]
+                            if t0 <= gpu_temp <= t1:
+                                ratio = (gpu_temp - t0) / (t1 - t0) if t1 != t0 else 0
+                                curve_pct = p0 + ratio * (p1 - p0)
+                                break
+                            elif gpu_temp > t1:
+                                curve_pct = p1
+                        nvidia_set_fan_speed(nv["index"], int(curve_pct))
 
             except Exception as e:
                 print(f"[FAN AUTO CTRL] erro: {e}", flush=True)

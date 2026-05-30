@@ -26,7 +26,7 @@ export function FansPanel({ data, onCommand }: FansPanelProps) {
     }}>
       {fans.map((fan: any, i: number) => (
         <FanCard key={i} fan={fan} onCommand={onCommand}
-          gpuTemp={data.temperatures?.gpu ?? 0}
+          gpuTemp={fan.nvidia ? (fan.nvidia_temp ?? 0) : (data.temperatures?.gpu ?? 0)}
           fanCurves={(data as any).fan_curves ?? {}}
         />
       ))}
@@ -93,7 +93,7 @@ function FanCard({ fan, onCommand, gpuTemp, fanCurves }: { fan: any; onCommand: 
     setTimeout(() => { setApplying(false); setFeedback('') }, 2500)
   }
 
-  const isGpu = fan.label?.toLowerCase().includes('gpu') || fan.label_full?.toLowerCase().includes('amdgpu')
+  const isGpu = fan.label?.toLowerCase().includes('gpu') || fan.label_full?.toLowerCase().includes('amdgpu') || fan.label_full?.toLowerCase().includes('nvidia') || fan.nvidia === true
   const savedCurve = fanCurves?.[fan.name]
 
   const handleApplyCurve = (curve: {temp:number,pct:number}[]) => {
@@ -164,9 +164,9 @@ function FanCard({ fan, onCommand, gpuTemp, fanCurves }: { fan: any; onCommand: 
         {/* RPM */}
         <div style={{ textAlign: 'right', flexShrink: 0 }}>
           <div style={{ fontSize: 28, fontWeight: 900, fontFamily: 'JetBrains Mono', color: rpmColor, lineHeight: 1 }}>
-            {rpm > 0 ? rpm.toLocaleString() : '—'}
+            {fan.nvidia ? `${pct}%` : (rpm > 0 ? rpm.toLocaleString() : '—')}
           </div>
-          <div style={{ fontSize: 10, color: 'hsl(var(--muted))' }}>RPM</div>
+          <div style={{ fontSize: 10, color: 'hsl(var(--muted))' }}>{fan.nvidia ? 'FAN' : 'RPM'}</div>
         </div>
       </div>
 
