@@ -60,3 +60,10 @@ sudo rm -rf /opt/machctrl /usr/local/bin/machctrl
 sudo rm /etc/systemd/system/machctrl-backend.service
 sudo rm /usr/share/applications/machctrl.desktop
 ```
+<img src="https://i.ibb.co/DDqZ2BhL/Captura-de-tela-20260530-193716.png" alt="Captura de tela 20260530 193716" border="0">
+<img src="https://i.ibb.co/gb55T0Yw/Captura-de-tela-20260530-193735.png" alt="Captura de tela 20260530 193735" border="0">
+<img src="https://i.ibb.co/JwD052t8/Captura-de-tela-20260530-193809.png" alt="Captura de tela 20260530 193809" border="0">
+<img src="https://i.ibb.co/qF0Xyqwz/Captura-de-tela-20260530-193823.png" alt="Captura de tela 20260530 193823" border="0">
+<img src="https://i.ibb.co/wZyMSKhQ/Captura-de-tela-20260530-193830.png" alt="Captura de tela 20260530 193830" border="0">
+<img src="https://i.ibb.co/3mzKGfmX/Captura-de-tela-20260530-193837.png" alt="Captura de tela 20260530 193837" border="0">
+<img src="https://i.ibb.co/678K2qgp/Captura-de-tela-20260530-194008.png" alt="Captura de tela 20260530 194008" border="0">
