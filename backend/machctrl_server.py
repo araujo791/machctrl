@@ -1670,6 +1670,9 @@ class SensorServer:
 
             pwm_val = read_sensor_file(pwm_path) if pwm_path and os.path.exists(pwm_path) else None
             speed_pct = round(pwm_val / 255 * 100) if pwm_val is not None else 0
+            # Se RPM é 0, a fan está parada — corrige speed_percent para 0
+            if not rpm:
+                speed_pct = 0
 
             # Nome amigável
             chip = label.split("/")[0] if "/" in label else label
