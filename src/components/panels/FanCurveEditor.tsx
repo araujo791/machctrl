@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 
 const DEFAULT_CURVE = [
-  { temp: 30, pct: 0  },
-  { temp: 50, pct: 20 },
-  { temp: 65, pct: 50 },
-  { temp: 75, pct: 75 },
+  { temp: 30, pct: 30 },
+  { temp: 50, pct: 40 },
+  { temp: 65, pct: 60 },
+  { temp: 75, pct: 80 },
   { temp: 85, pct: 100 },
 ]
 
@@ -31,6 +31,7 @@ function fromY(y: number)  { return Math.round(Math.min(100, Math.max(0,  100 - 
 
 export function FanCurveEditor({ fan, gpuTemp, savedCurve, onApply, onReset, onClose }: Props) {
   const [pts, setPts] = useState<Point[]>(savedCurve?.length === 5 ? savedCurve : DEFAULT_CURVE)
+  const [confirmReset, setConfirmReset] = useState(false)
   const [drag, setDrag] = useState<number | null>(null)
   const svgRef = useRef<SVGSVGElement>(null)
 
@@ -251,13 +252,37 @@ export function FanCurveEditor({ fan, gpuTemp, savedCurve, onApply, onReset, onC
 
         {/* Botões */}
         <div style={{ display: 'flex', gap: 8 }}>
-          <button onClick={() => { setPts(DEFAULT_CURVE); onReset() }} style={{
-            flex: 1, padding: '10px 0', borderRadius: 10, fontSize: 12, fontWeight: 600,
-            cursor: 'pointer', border: '1px solid hsl(var(--border))',
-            background: 'transparent', color: 'hsl(var(--muted))',
-          }}>
-            Resetar padrão
-          </button>
+          {confirmReset ? (
+            <div style={{
+              flex: 1, borderRadius: 10, padding: '8px 10px',
+              background: 'hsl(var(--orange) / 0.12)', border: '1px solid hsl(var(--orange) / 0.4)',
+              display: 'flex', flexDirection: 'column', gap: 6,
+            }}>
+              <div style={{ fontSize: 11, color: 'hsl(var(--orange))', fontWeight: 600, textAlign: 'center' }}>
+                ⚠️ A curva atual será perdida e as fans voltarão ao modo automático. Confirmar?
+              </div>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button onClick={() => setConfirmReset(false)} style={{
+                  flex: 1, padding: '6px 0', borderRadius: 8, fontSize: 11, fontWeight: 600,
+                  cursor: 'pointer', border: '1px solid hsl(var(--border))',
+                  background: 'transparent', color: 'hsl(var(--muted))',
+                }}>Cancelar</button>
+                <button onClick={() => { setConfirmReset(false); setPts(DEFAULT_CURVE); onReset() }} style={{
+                  flex: 1, padding: '6px 0', borderRadius: 8, fontSize: 11, fontWeight: 700,
+                  cursor: 'pointer', border: 'none',
+                  background: 'hsl(var(--orange))', color: '#000',
+                }}>Confirmar reset</button>
+              </div>
+            </div>
+          ) : (
+            <button onClick={() => setConfirmReset(true)} style={{
+              flex: 1, padding: '10px 0', borderRadius: 10, fontSize: 12, fontWeight: 600,
+              cursor: 'pointer', border: '1px solid hsl(var(--border))',
+              background: 'transparent', color: 'hsl(var(--muted))',
+            }}>
+              Resetar padrão
+            </button>
+          )}
           <button onClick={() => onApply(pts)} style={{
             flex: 2, padding: '10px 0', borderRadius: 10, fontSize: 12, fontWeight: 700,
             cursor: 'pointer', border: 'none',
