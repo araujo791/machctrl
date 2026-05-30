@@ -1296,6 +1296,16 @@ class SensorServer:
                         elif mode in ("manual", "max"):
                             speed = self.fan_speeds.get(fan_id, 100) if mode == "manual" else 100
                             set_fan_speed(info["pwm"], info.get("pwm_enable"), speed)
+                        elif mode == "curve":
+                            # Modo curva: o _fan_auto_control vai aplicar no próximo ciclo
+                            # Apenas garante que o PWM está em modo manual (enable=1) para o backend controlar
+                            pwm_enable = info.get("pwm_enable")
+                            if pwm_enable and os.path.exists(pwm_enable):
+                                try:
+                                    with open(pwm_enable, "w") as f:
+                                        f.write("1")
+                                except Exception:
+                                    pass
                 print(f"⚙️  Configurações carregadas de {self.config_path}")
         except Exception as e:
             print(f"⚠️  Configurações não carregadas: {e}")

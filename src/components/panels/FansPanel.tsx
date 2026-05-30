@@ -37,7 +37,7 @@ export function FansPanel({ data, onCommand }: FansPanelProps) {
 function FanCard({ fan, onCommand, gpuTemp, fanCurves }: { fan: any; onCommand: (c: object) => void; gpuTemp?: number; fanCurves?: Record<string,any[]> }) {
   const rpm  = fan.rpm ?? 0
   const pct  = fan.speed_percent ?? fan.pwm_pct ?? 0
-  const [mode, setMode]         = useState<'auto'|'manual'|'max'>(fan.mode ?? 'auto')
+  const [mode, setMode]         = useState<'auto'|'manual'|'max'|'curve'>(fan.mode ?? 'auto')
   const [manualPct, setManualPct] = useState<number>(pct > 0 ? pct : 50)
   const [feedback, setFeedback] = useState('')
   const [applying, setApplying] = useState(false)
@@ -45,7 +45,7 @@ function FanCard({ fan, onCommand, gpuTemp, fanCurves }: { fan: any; onCommand: 
 
   // Sempre sincroniza com o servidor — estado local é só visual temporário
   useEffect(() => {
-    setMode((fan.mode as 'auto'|'manual'|'max') ?? 'auto')
+    setMode((fan.mode as 'auto'|'manual'|'max'|'curve') ?? 'auto')
   }, [fan.mode])
 
   const angleRef = useRef(0)
@@ -68,7 +68,7 @@ function FanCard({ fan, onCommand, gpuTemp, fanCurves }: { fan: any; onCommand: 
     return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current) }
   }, [rpm])
 
-  const sendCmd = (m: 'auto'|'manual'|'max', speed?: number) => {
+  const sendCmd = (m: 'auto'|'manual'|'max'|'curve', speed?: number) => {
     if (applying) return
     setMode(m)
     setApplying(true)
@@ -105,7 +105,7 @@ function FanCard({ fan, onCommand, gpuTemp, fanCurves }: { fan: any; onCommand: 
   }
 
   const rpmColor = rpm > 3500 ? 'hsl(var(--red))' : rpm > 2000 ? 'hsl(var(--orange))' : rpm > 0 ? 'hsl(var(--accent))' : 'hsl(var(--muted))'
-  const modeColor = mode === 'auto' ? 'hsl(var(--green))' : mode === 'max' ? 'hsl(var(--orange))' : 'hsl(var(--accent))'
+  const modeColor = mode === 'auto' ? 'hsl(var(--green))' : mode === 'max' ? 'hsl(var(--orange))' : mode === 'curve' ? 'hsl(var(--purple, var(--accent)))' : 'hsl(var(--accent))'
 
   return (
     <div style={{
@@ -155,7 +155,7 @@ function FanCard({ fan, onCommand, gpuTemp, fanCurves }: { fan: any; onCommand: 
             {feedback
               ? <span style={{ color: 'hsl(var(--green))' }}>✓ {feedback}</span>
               : <span>modo: <span style={{ color: modeColor, fontWeight: 600 }}>
-                  {mode === 'auto' ? 'Automático' : mode === 'max' ? 'Máximo' : 'Manual'}
+                  {mode === 'auto' ? 'Automático' : mode === 'max' ? 'Máximo' : mode === 'curve' ? 'Curva' : 'Manual'}
                 </span></span>
             }
           </div>
