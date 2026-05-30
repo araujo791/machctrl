@@ -1259,8 +1259,9 @@ class SensorServer:
         self.prev_net_time = None
         # Fan name mapping: sequential index -> pwm key
         self.fan_index_map = {}  # "fan1" -> "chip_pwm1", etc.
-        self.fan_modes  = {}    # fan_id -> "auto"|"manual"|"max"
+        self.fan_modes  = {}    # fan_id -> "auto"|"manual"|"max"|"curve"
         self.fan_speeds = {}    # fan_id -> 0-100
+        self.fan_curves = {}    # fan_id -> [{temp, pct}, ...] 5 pontos
         self.config_path = "/etc/machctrl/settings.json"
 
         self.detect_hardware()
@@ -1284,6 +1285,7 @@ class SensorServer:
                 # Restaura modos de fan
                 self.fan_modes  = cfg.get("fan_modes",  {})
                 self.fan_speeds = cfg.get("fan_speeds", {})
+                self.fan_curves = cfg.get("fan_curves", {})
                 # Aplica modos de fan
                 for fan_id, mode in self.fan_modes.items():
                     pwm_name = self.fan_index_map.get(fan_id, fan_id)
@@ -1307,6 +1309,7 @@ class SensorServer:
                 "power_profile": self.current_profile,
                 "fan_modes":     self.fan_modes,
                 "fan_speeds":    self.fan_speeds,
+                "fan_curves":    self.fan_curves,
             }
             with open(self.config_path, "w") as f:
                 _json.dump(cfg, f, indent=2)
@@ -1829,6 +1832,7 @@ class SensorServer:
             },
             "pwm_names": list(self.pwm_controls.keys()),
             "fan_map": self.fan_index_map,
+            "fan_curves": self.fan_curves,
             "gpu": get_gpu_info(),
             "power_watts": self._estimate_power_watts(),
             "network": net_result,
@@ -1932,6 +1936,23 @@ class SensorServer:
                 await websocket.send(json.dumps({
                     "type": "error",
                     "message": f"Fan '{fan_key}' não encontrado. fan_index_map={self.fan_index_map}"
+                }))
+
+        elif action == "set_fan_curve":
+            fan_key = cmd.get("fan", "")
+            curve   = cmd.get("curve", [])  # [{temp, pct}, ...] ordenado por temp
+            if fan_key and len(curve) == 5:
+                self.fan_curves[fan_key] = curve
+                self.fan_modes[fan_key]  = "curve"
+                self._save_settings()
+                await websocket.send(json.dumps({
+                    "type": "command_result", "action": "set_fan_curve",
+                    "success": True, "fan": fan_key,
+                }))
+            else:
+                await websocket.send(json.dumps({
+                    "type": "command_result", "action": "set_fan_curve",
+                    "success": False, "fan": fan_key, "message": "Curva inválida (precisa de 5 pontos)",
                 }))
 
         elif action == "get_clean_tasks":
@@ -2426,8 +2447,39 @@ class SensorServer:
                     enable_path = ctrl.get("pwm_enable")
                     if not pwm_path or not os.path.exists(pwm_path):
                         continue
-                    # Pula GPU (amdgpu) — ela controla os próprios fans
-                    if "amdgpu" in ctrl_name or "radeon" in ctrl_name:
+                    # GPU amdgpu: aplica curva se modo for "curve"
+                    is_gpu = "amdgpu" in ctrl_name or "radeon" in ctrl_name
+                    if is_gpu:
+                        if mode != "curve":
+                            continue  # GPU em auto/manual/max — não interfere
+                        # Aplica curva de temperatura da GPU
+                        gpu_temp = (_d.get("temperatures") or {}).get("gpu", 0)
+                        if gpu_temp <= 0:
+                            continue
+                        curve = self.fan_curves.get(fan_id, [])
+                        if not curve:
+                            continue
+                        # Interpola na curva
+                        curve_s = sorted(curve, key=lambda p: p["temp"])
+                        curve_pct = curve_s[0]["pct"]
+                        for i in range(len(curve_s) - 1):
+                            t0, p0 = curve_s[i]["temp"],   curve_s[i]["pct"]
+                            t1, p1 = curve_s[i+1]["temp"], curve_s[i+1]["pct"]
+                            if t0 <= gpu_temp <= t1:
+                                ratio = (gpu_temp - t0) / (t1 - t0) if t1 != t0 else 0
+                                curve_pct = p0 + ratio * (p1 - p0)
+                                break
+                            elif gpu_temp > t1:
+                                curve_pct = p1
+                        gpu_pwm = max(0, min(255, int(curve_pct * 2.55)))
+                        try:
+                            if enable_path and os.path.exists(enable_path):
+                                with open(enable_path, "w") as f:
+                                    f.write("1")
+                            with open(pwm_path, "w") as f:
+                                f.write(str(gpu_pwm))
+                        except Exception:
+                            pass
                         continue
                     try:
                         # Força enable=1 SEMPRE antes de escrever

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { FanCurveEditor } from './FanCurveEditor'
 import fanBladeUrl from '../../assets/fan-blade.png'
 import type { SensorData } from '../../hooks/useSensorData'
 
@@ -24,19 +25,23 @@ export function FansPanel({ data, onCommand }: FansPanelProps) {
       gap: 14, overflowY: 'auto', height: '100%', alignContent: 'start',
     }}>
       {fans.map((fan: any, i: number) => (
-        <FanCard key={i} fan={fan} onCommand={onCommand} />
+        <FanCard key={i} fan={fan} onCommand={onCommand}
+          gpuTemp={data.temperatures?.gpu ?? 0}
+          fanCurves={(data as any).fan_curves ?? {}}
+        />
       ))}
     </div>
   )
 }
 
-function FanCard({ fan, onCommand }: { fan: any; onCommand: (c: object) => void }) {
+function FanCard({ fan, onCommand, gpuTemp, fanCurves }: { fan: any; onCommand: (c: object) => void; gpuTemp?: number; fanCurves?: Record<string,any[]> }) {
   const rpm  = fan.rpm ?? 0
   const pct  = fan.speed_percent ?? fan.pwm_pct ?? 0
   const [mode, setMode]         = useState<'auto'|'manual'|'max'>(fan.mode ?? 'auto')
   const [manualPct, setManualPct] = useState<number>(pct > 0 ? pct : 50)
   const [feedback, setFeedback] = useState('')
   const [applying, setApplying] = useState(false)
+  const [showCurve, setShowCurve] = useState(false)
 
   // Sempre sincroniza com o servidor — estado local é só visual temporário
   useEffect(() => {
@@ -68,6 +73,11 @@ function FanCard({ fan, onCommand }: { fan: any; onCommand: (c: object) => void 
     setMode(m)
     setApplying(true)
 
+    if (m === 'curve') {
+      setShowCurve(true)
+      setApplying(false)
+      return
+    }
     if (m === 'auto') {
       onCommand({ action: 'set_fan_auto', fan: fan.name })
       setFeedback('Automático')
@@ -81,6 +91,17 @@ function FanCard({ fan, onCommand }: { fan: any; onCommand: (c: object) => void 
     }
 
     setTimeout(() => { setApplying(false); setFeedback('') }, 2500)
+  }
+
+  const isGpu = fan.label?.toLowerCase().includes('gpu') || fan.label_full?.toLowerCase().includes('amdgpu')
+  const savedCurve = fanCurves?.[fan.name]
+
+  const handleApplyCurve = (curve: {temp:number,pct:number}[]) => {
+    onCommand({ action: 'set_fan_curve', fan: fan.name, curve })
+    setMode('curve')
+    setShowCurve(false)
+    setFeedback('Curva aplicada')
+    setTimeout(() => setFeedback(''), 2500)
   }
 
   const rpmColor = rpm > 3500 ? 'hsl(var(--red))' : rpm > 2000 ? 'hsl(var(--orange))' : rpm > 0 ? 'hsl(var(--accent))' : 'hsl(var(--muted))'
@@ -190,7 +211,10 @@ function FanCard({ fan, onCommand }: { fan: any; onCommand: (c: object) => void 
       {/* Botões de modo */}
       {fan.has_pwm && (
         <div style={{ display: 'flex', gap: 6 }}>
-          {(['auto', 'manual', 'max'] as const).map(m => (
+          {(fan.label?.toLowerCase().includes('gpu') || fan.label_full?.toLowerCase().includes('amdgpu')
+        ? ['auto', 'manual', 'max', 'curve'] as const
+        : ['auto', 'manual', 'max'] as const
+      ).map(m => (
             <button key={m} onClick={() => sendCmd(m)} disabled={applying} style={{
               flex: 1, padding: '8px 0', borderRadius: 9,
               fontSize: 11, fontWeight: 600, cursor: applying ? 'wait' : 'pointer',
@@ -206,10 +230,33 @@ function FanCard({ fan, onCommand }: { fan: any; onCommand: (c: object) => void 
               transition: 'all 0.15s',
               opacity: applying ? 0.6 : 1,
             }}>
-              {m === 'auto' ? 'Auto' : m === 'manual' ? 'Manual' : 'Máximo'}
+              {m === 'auto' ? 'Auto' : m === 'manual' ? 'Manual' : m === 'max' ? 'Máximo' : 'Curva'}
             </button>
           ))}
         </div>
+      )}
+      {/* Indicador de curva ativa */}
+      {mode === 'curve' && fan.has_pwm && (
+        <div onClick={() => setShowCurve(true)} style={{
+          padding: '8px 12px', borderRadius: 9, cursor: 'pointer',
+          background: 'hsl(var(--accent) / 0.08)', border: '1px solid hsl(var(--accent) / 0.25)',
+          fontSize: 11, color: 'hsl(var(--accent))', textAlign: 'center',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+        }}>
+          <span>📈</span>
+          <span>Curva ativa — clique para editar</span>
+        </div>
+      )}
+
+      {/* Editor de curva */}
+      {showCurve && isGpu && (
+        <FanCurveEditor
+          fan={fan}
+          gpuTemp={gpuTemp ?? 0}
+          savedCurve={savedCurve}
+          onApply={handleApplyCurve}
+          onClose={() => setShowCurve(false)}
+        />
       )}
     </div>
   )
