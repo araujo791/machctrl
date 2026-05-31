@@ -217,7 +217,7 @@ export function OverviewPanel({ data, cpuHistory }: OverviewProps) {
                   <Row label={t('vramTotal')} value={`${gpu.vram_total_gb?.toFixed(1)} GB`} />
                 </>}
                 {gpuDriver && <Row label={t('driver')} value={gpuDriver} />}
-                {gpu.power_w != null && <Row label={t('power')} value={`${gpu.power_w} W`} />}
+                {gpu.power_w != null && <Row label={t('powerLabel')} value={`${gpu.power_w} W`} />}
               </div>
             </div>
 
