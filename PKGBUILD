@@ -12,11 +12,11 @@ depends=(
     'python-websockets'
     'lm_sensors'
     'dmidecode'
-    'nodejs'
 )
 makedepends=(
-    'npm'
     'git'
+    'nodejs'
+    'npm'
 )
 optdepends=(
     'nvidia-utils: suporte a GPU NVIDIA (fan control, temperatura)'
@@ -34,6 +34,11 @@ sha256sums=('SKIP')
 
 build() {
     cd "$srcdir/machctrl-main"
+    # Verifica se node/npm estão disponíveis
+    if ! command -v node &>/dev/null; then
+        echo "ERRO: nodejs não encontrado. Instale com: sudo pacman -S nodejs npm"
+        exit 1
+    fi
     npm install --prefer-offline
     npx vite build
     npx electron-builder build --linux dir
