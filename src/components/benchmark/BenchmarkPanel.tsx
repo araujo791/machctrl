@@ -147,9 +147,9 @@ export function BenchmarkPanel() {
       }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
           <div>
-            <div style={{ fontSize: 14, fontWeight: 700, color: 'hsl(var(--text))' }}>Benchmark do Sistema</div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: 'hsl(var(--text))' }}>{t('benchTitle')}</div>
             <div style={{ fontSize: 11, color: 'hsl(var(--muted))', marginTop: 2 }}>
-              Testa CPU (matemática + ponto flutuante) e largura de banda da memória
+              {t('benchDesc')}
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
@@ -158,7 +158,7 @@ export function BenchmarkPanel() {
             ) : (
               <>
                 {results.length > 0 && <Btn onClick={reset} secondary>{t('reset')}</Btn>}
-                <Btn onClick={run}><Play size={13} /> Iniciar</Btn>
+                <Btn onClick={run}><Play size={13} /> {t('start')}</Btn>
               </>
             )}
           </div>
@@ -260,8 +260,8 @@ export function BenchmarkPanel() {
             <MemoryStick size={28} color="hsl(var(--purple))" />
             <HardDrive size={28} color="hsl(var(--green))" />
           </div>
-          <div style={{ fontSize: 14, fontWeight: 600, color: 'hsl(var(--text))' }}>Pronto para Benchmark</div>
-          <div style={{ fontSize: 12 }}>Clique em Iniciar para rodar os testes de CPU e Memória</div>
+          <div style={{ fontSize: 14, fontWeight: 600, color: 'hsl(var(--text))' }}>{t('readyTitle')}</div>
+          <div style={{ fontSize: 12 }}>{t('readyDesc')}</div>
         </div>
       )}
     </div>

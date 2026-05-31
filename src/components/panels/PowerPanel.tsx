@@ -101,7 +101,7 @@ export function PowerPanel({ data, onCommand }: PowerPanelProps) {
         background: 'hsl(var(--surface))', border: '1px solid hsl(var(--border))',
       }}>
         <div style={{ fontSize: 12, color: 'hsl(var(--muted))' }}>
-          Governador: <span style={{ color: 'hsl(var(--text))', fontFamily: 'JetBrains Mono', fontWeight: 600 }}>
+          {t('governor')}: <span style={{ color: 'hsl(var(--text))', fontFamily: 'JetBrains Mono', fontWeight: 600 }}>
             {governor || backendProfile}
           </span>
         </div>
@@ -145,7 +145,7 @@ export function PowerPanel({ data, onCommand }: PowerPanelProps) {
                   padding: '2px 7px', borderRadius: 5,
                   background: p.color, color: '#000',
                 }}>
-                  ATIVO
+                  {t('active')}
                 </div>
               )}
 
@@ -174,7 +174,7 @@ export function PowerPanel({ data, onCommand }: PowerPanelProps) {
                 padding: '10px 12px', borderRadius: 10,
                 background: 'hsl(var(--bg))', border: '1px solid hsl(var(--border))',
               }}>
-                <InfoRow icon={<Battery size={10} />} label="Consumo"  value={info.power}  color={p.color} active={isActive} />
+                <InfoRow icon={<Battery size={10} />} label={t('consumption')}  value={info.power}  color={p.color} active={isActive} />
                 <InfoRow icon={<Cpu size={10} />}     label="Turbo"    value={info.turbo}  color={p.color} active={isActive} />
                 <InfoRow icon={<Gauge size={10} />}   label="CPU"      value={info.perf}   color={p.color} active={isActive} />
               </div>

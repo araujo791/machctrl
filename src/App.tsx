@@ -117,24 +117,24 @@ function AboutPanel({ theme, onToggleTheme }: { theme: string; onToggleTheme: ()
       />
       <div style={{ textAlign:'center' }}>
         <div style={{ fontSize:26, fontWeight:900, color:'hsl(var(--text))' }}>MachCtrl</div>
-        <div style={{ fontSize:13, color:'hsl(var(--muted))', marginTop:4 }}>Monitor e Otimizador de Hardware para Linux</div>
+        <div style={{ fontSize:13, color:'hsl(var(--muted))', marginTop:4 }}>{t('appDesc')}</div>
         <div style={{ display:'inline-flex', alignItems:'center', gap:8, marginTop:8, padding:'3px 14px', borderRadius:20, background:'hsl(var(--surface))', border:'1px solid hsl(var(--border))', fontSize:11, color:'hsl(var(--muted))' }}>
           v2.0.0 · CachyOS / Arch · Electron + React
         </div>
       </div>
 
       <div style={{ display:'flex', gap:10, flexWrap:'wrap', justifyContent:'center' }}>
-        <ActionBtn onClick={onToggleTheme} label={theme==='dark' ? '☀️  Tema Claro' : '🌙  Tema Escuro'} />
-        <ActionBtn onClick={handleAutostart} label="🚀  Iniciar com o sistema" />
+        <ActionBtn onClick={onToggleTheme} label={theme==='dark' ? t('lightTheme') : t('darkTheme')} />
+        <ActionBtn onClick={handleAutostart} label={t('autostart')} />
         <ActionBtn
           onClick={handleDonate}
-          label="💙  Apoiar via PayPal"
+          label={t('support')}
           accent
         />
       </div>
 
       <div style={{ fontSize:11, color:'hsl(var(--muted))', opacity:0.5, textAlign:'center', maxWidth:320 }}>
-        Se o MachCtrl te ajuda, considere apoiar o desenvolvimento ❤️
+        {t('supportHint')}
       </div>
     </div>
   )

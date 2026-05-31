@@ -1,4 +1,4 @@
-import { t, tf } from '../../i18n'
+import { t, tf, translations, lang } from '../../i18n'
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { Trash2, RefreshCw, CheckCircle, AlertCircle, Loader } from 'lucide-react'
 
@@ -185,13 +185,13 @@ export function CleanerPanel({ sendCommand, addMessageListener }: Props) {
 
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: 'hsl(var(--text))' }}>{task.label}</span>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: 'hsl(var(--text))' }}>{(translations[lang] as any)[task.id] ?? task.label}</span>
                   {task.needsRoot && (
                     <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 4, background: 'hsl(var(--orange)/0.15)', color: 'hsl(var(--orange))', fontWeight: 600 }}>ROOT</span>
                   )}
                 </div>
                 <div style={{ fontSize: 10, color: 'hsl(var(--muted))', marginTop: 1 }}>
-                  {task.result ?? task.description}
+                  {task.result ?? (translations[lang] as any)[task.id + '-d'] ?? task.description}
                 </div>
               </div>
 
