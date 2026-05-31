@@ -56,12 +56,12 @@ export function CpuPanel({ data, cpuHistory }: CpuPanelProps) {
                 <div>
                   <div style={{ fontSize: 14, fontWeight: 700, color: 'hsl(var(--text))' }}>{shortName}</div>
                   <div style={{ fontSize: 11, color: 'hsl(var(--muted))', marginTop: 2 }}>
-                    {coreCount} núcleos · {threadCount} threads · {freq.toFixed(2)} GHz
+                    {tf('cores', coreCount)} · {threadCount} threads · {freq.toFixed(2)} GHz
                   </div>
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 20 }}>
-                <Metric label="Uso médio" value={`${Math.round(usage)}%`}  color={usageColor} />
+                <Metric label={t('avgUsage')} value={`${Math.round(usage)}%`}  color={usageColor} />
                 <Metric label="Package"   value={`${Math.round(pkg)}°C`}   color={tempColor} />
                 <Metric label={t('freq')}      value={`${freq.toFixed(2)} GHz`} color="hsl(var(--muted))" />
               </div>
@@ -235,11 +235,11 @@ function ThreadGrid({ cores, pkgTemp, accentColor }: {
       <div style={{ display: 'flex', gap: 18, marginTop: 12, fontSize: 10, color: 'hsl(var(--muted))' }}>
         <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
           <span style={{ width: 12, height: 7, borderRadius: 2, background: accentColor, opacity: 0.5, display: 'inline-block' }} />
-          Atividade (%)
+          {t('activity')}
         </span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
           <span style={{ width: 5, height: 12, borderRadius: 2, background: 'hsl(32 100% 58%)', display: 'inline-block' }} />
-          Temperatura (°C)
+          {t('temperatureC')}
         </span>
       </div>
     </div>

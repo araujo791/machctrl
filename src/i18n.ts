@@ -94,6 +94,9 @@ const translations = {
     installedRam: 'Pentes Instalados',
     // CPU
     waitingCpu: 'Aguardando dados do CPU...',
+    cores: (n: number) => `${n} núcleos`,
+    avgUsage: 'Uso médio',
+    activity: 'Atividade (%)',
     threadTooltip: (id: number, u: number, t: number) => `Thread ${id} | Uso: ${u}% | Temp: ${t}°C`,
     temperatureC: 'Temperatura (°C)',
     // Disks
@@ -250,6 +253,9 @@ const translations = {
     installedRam: 'Installed RAM',
     // CPU
     waitingCpu: 'Waiting for CPU data...',
+    cores: (n: number) => `${n} cores`,
+    avgUsage: 'Avg usage',
+    activity: 'Activity (%)',
     threadTooltip: (id: number, u: number, t: number) => `Thread ${id} | Usage: ${u}% | Temp: ${t}°C`,
     temperatureC: 'Temperature (°C)',
     // Disks
