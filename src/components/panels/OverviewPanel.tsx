@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { t } from '../../i18n'
+import { t, tf } from '../../i18n'
 import { RingGauge } from '../shared/RingGauge'
 import { Sparkline } from '../shared/Sparkline'
 import { normalizeDisks } from './DisksPanel'
@@ -125,7 +125,7 @@ export function OverviewPanel({ data, cpuHistory }: OverviewProps) {
           </div>
           <div style={{ fontSize: 12, color: 'hsl(var(--muted))', marginBottom: 12 }}>
             {sys.os} · Kernel {sys.kernel}
-            {sys.install_date && ` · Instalado em ${sys.install_date}`}
+            {sys.install_date && tf('installedOn', sys.install_date)}
           </div>
           <div style={{ height: 1, background: 'hsl(var(--border))', marginBottom: 12 }} />
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 24px' }}>
@@ -166,7 +166,7 @@ export function OverviewPanel({ data, cpuHistory }: OverviewProps) {
           <div style={{ display: 'flex', gap: 14, alignItems: 'center', marginBottom: 10 }}>
             <RingGauge value={mem?.usage ?? 0} size={80} thickness={8} color={colorPct(mem?.usage ?? 0)} label="RAM" unit="%" />
             <div style={{ flex: 1 }}>
-              <Row label="Em uso" value={`${ramUsed.toFixed(1)} GB`} color={colorPct(mem?.usage ?? 0)} />
+              <Row label={t('inUse')} value={`${ramUsed.toFixed(1)} GB`} color={colorPct(mem?.usage ?? 0)} />
               <Row label={t('free')}  value={`${ramFree.toFixed(1)} GB`} />
               <Row label={t('total')}  value={`${ramTotal.toFixed(1)} GB`} />
               {swapInfo && <Row label="Swap" value={`${swapInfo.used_gb?.toFixed(1)}/${swapInfo.total_gb?.toFixed(1)} GB`} />}
@@ -174,7 +174,7 @@ export function OverviewPanel({ data, cpuHistory }: OverviewProps) {
           </div>
           {procs.length > 0 && (
             <>
-              <div style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'hsl(var(--muted))', marginBottom: 6 }}>Top Processos</div>
+              <div style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'hsl(var(--muted))', marginBottom: 6 }}>{t('topProcesses')}</div>
               {procs.slice(0, 10).map((p: any, i: number) => (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
                   <div style={{ fontSize: 9, color: 'hsl(var(--muted))', width: 14, textAlign: 'right', flexShrink: 0 }}>{i+1}</div>
@@ -210,11 +210,11 @@ export function OverviewPanel({ data, cpuHistory }: OverviewProps) {
               <RingGauge value={gpuUsage} size={72} thickness={7}
                 color={colorPct(gpuUsage)} label="GPU" unit="%" />
               <div style={{ flex: 1 }}>
-                <Row label="Uso GPU"     value={`${Math.round(gpuUsage)}%`}        color={colorPct(gpuUsage)} />
-                <Row label="Temperatura" value={`${Math.round(gpuTemp)}°C`}        color={colorTemp(gpuTemp)} />
+                <Row label={t('gpuUsage')}     value={`${Math.round(gpuUsage)}%`}        color={colorPct(gpuUsage)} />
+                <Row label={t('temperature')} value={`${Math.round(gpuTemp)}°C`}        color={colorTemp(gpuTemp)} />
                 {gpu.vram_total_gb > 0 && <>
-                  <Row label="VRAM usada" value={`${gpu.vram_used_gb?.toFixed(1)} GB`} />
-                  <Row label="VRAM total" value={`${gpu.vram_total_gb?.toFixed(1)} GB`} />
+                  <Row label={t('vramUsed')} value={`${gpu.vram_used_gb?.toFixed(1)} GB`} />
+                  <Row label={t('vramTotal')} value={`${gpu.vram_total_gb?.toFixed(1)} GB`} />
                 </>}
                 {gpuDriver && <Row label={t('driver')} value={gpuDriver} />}
                 {gpu.power_w != null && <Row label={t('power')} value={`${gpu.power_w} W`} />}
@@ -258,8 +258,8 @@ export function OverviewPanel({ data, cpuHistory }: OverviewProps) {
                   <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 8 }}>
                     <RingGauge value={usage} size={64} thickness={7} color={colorPct(usage)} label="CPU" unit="%" />
                     <div style={{ flex: 1 }}>
-                      <Row label="Uso"  value={`${Math.round(usage)}%`}        color={colorPct(usage)} />
-                      <Row label="Temp" value={`${Math.round(cpu.package)}°C`} color={colorTemp(cpu.package)} />
+                      <Row label={t('usage')}  value={`${Math.round(usage)}%`}        color={colorPct(usage)} />
+                      <Row label={t('temp')} value={`${Math.round(cpu.package)}°C`} color={colorTemp(cpu.package)} />
                       <Row label={t('freq')} value={`${freq.toFixed(1)} GHz`} />
                     </div>
                   </div>
@@ -272,7 +272,7 @@ export function OverviewPanel({ data, cpuHistory }: OverviewProps) {
           </div>
           {procs.filter((p: any) => p.cpu > 0).length > 0 && (
             <>
-              <div style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'hsl(var(--muted))', margin: '10px 0 6px' }}>Top CPU</div>
+              <div style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'hsl(var(--muted))', margin: '10px 0 6px' }}>{t('topCpu')}</div>
               {procs.filter((p: any) => p.cpu > 0).slice(0, 5).map((p: any, i: number) => (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
                   <div style={{ flex: 1, fontSize: 11, color: 'hsl(var(--text))', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
@@ -328,17 +328,17 @@ export function OverviewPanel({ data, cpuHistory }: OverviewProps) {
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 4 }}>
                       <div style={{ padding: '8px 10px', borderRadius: 8, background: 'hsl(var(--border) / 0.4)', border: `1px solid ${downColor}33` }}>
-                        <div style={{ fontSize: 9, color: 'hsl(var(--muted))', marginBottom: 2 }}>↓ Download</div>
+                        <div style={{ fontSize: 9, color: 'hsl(var(--muted))', marginBottom: 2 }}>{t('read')} ↓</div>
                         <div style={{ fontSize: 14, fontWeight: 800, fontFamily: 'JetBrains Mono', color: downColor }}>{fmtSpeed(adapter.down_mbps)}</div>
                       </div>
                       <div style={{ padding: '8px 10px', borderRadius: 8, background: 'hsl(var(--border) / 0.4)', border: `1px solid ${upColor}33` }}>
-                        <div style={{ fontSize: 9, color: 'hsl(var(--muted))', marginBottom: 2 }}>↑ Upload</div>
+                        <div style={{ fontSize: 9, color: 'hsl(var(--muted))', marginBottom: 2 }}>{t('write')} ↑</div>
                         <div style={{ fontSize: 14, fontWeight: 800, fontFamily: 'JetBrains Mono', color: upColor }}>{fmtSpeed(adapter.up_mbps)}</div>
                       </div>
                     </div>
                     {adapter.speed_mb > 0 && (
                       <div style={{ fontSize: 9, color: 'hsl(var(--muted))' }}>
-                        Velocidade: {adapter.speed_mb >= 1000 ? `${adapter.speed_mb/1000} Gbps` : `${adapter.speed_mb} Mbps`}
+                        {t('speed')}: {adapter.speed_mb >= 1000 ? `${adapter.speed_mb/1000} Gbps` : `${adapter.speed_mb} Mbps`}
                       </div>
                     )}
                   </div>

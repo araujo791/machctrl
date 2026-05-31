@@ -78,6 +78,20 @@ const translations = {
     // Power
     profileApplied: (label: string) => `Perfil "${label}" aplicado`,
     powerPersistHint: 'O perfil é aplicado imediatamente e persiste até reiniciar o serviço. Para persistir após reboot, configure o cpupower no systemd.',
+    // Overview cards
+    inUse: 'Em uso',
+    topProcesses: 'Top Processos',
+    topCpu: 'Top CPU',
+    gpuUsage: 'Uso GPU',
+    temperature: 'Temperatura',
+    vramUsed: 'VRAM usada',
+    vramTotal: 'VRAM total',
+    usage: 'Uso',
+    temp: 'Temp',
+    speed: 'Velocidade',
+    installedOn: (d: string) => ` · Instalado em ${d}`,
+    // Memory
+    installedRam: 'Pentes Instalados',
     // CPU
     waitingCpu: 'Aguardando dados do CPU...',
     threadTooltip: (id: number, u: number, t: number) => `Thread ${id} | Uso: ${u}% | Temp: ${t}°C`,
@@ -206,6 +220,34 @@ const translations = {
     // Power
     profileApplied: (label: string) => `Profile "${label}" applied`,
     powerPersistHint: 'The profile is applied immediately and persists until the service restarts. To persist after reboot, configure cpupower in systemd.',
+    // Overview cards
+    inUse: 'Em uso',
+    topProcesses: 'Top Processos',
+    topCpu: 'Top CPU',
+    gpuUsage: 'Uso GPU',
+    temperature: 'Temperatura',
+    vramUsed: 'VRAM usada',
+    vramTotal: 'VRAM total',
+    usage: 'Uso',
+    temp: 'Temp',
+    speed: 'Velocidade',
+    installedOn: (d: string) => ` · Instalado em ${d}`,
+    // Memory
+    installedRam: 'Pentes Instalados',
+    // Overview cards
+    inUse: 'In use',
+    topProcesses: 'Top Processes',
+    topCpu: 'Top CPU',
+    gpuUsage: 'GPU Usage',
+    temperature: 'Temperature',
+    vramUsed: 'VRAM used',
+    vramTotal: 'VRAM total',
+    usage: 'Usage',
+    temp: 'Temp',
+    speed: 'Speed',
+    installedOn: (d: string) => ` · Installed on ${d}`,
+    // Memory
+    installedRam: 'Installed RAM',
     // CPU
     waitingCpu: 'Waiting for CPU data...',
     threadTooltip: (id: number, u: number, t: number) => `Thread ${id} | Usage: ${u}% | Temp: ${t}°C`,

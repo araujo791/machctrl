@@ -46,7 +46,7 @@ export function MemoryPanel({ data }: MemoryPanelProps) {
         <div>
           <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.06em',
             textTransform: 'uppercase', color: 'hsl(var(--muted))', marginBottom: 10 }}>
-            Pentes Instalados
+            {t('installedRam')}
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 10 }}>
             {mem.slots.map((slot, i) => {

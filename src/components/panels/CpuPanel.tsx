@@ -63,7 +63,7 @@ export function CpuPanel({ data, cpuHistory }: CpuPanelProps) {
               <div style={{ display: 'flex', gap: 20 }}>
                 <Metric label="Uso médio" value={`${Math.round(usage)}%`}  color={usageColor} />
                 <Metric label="Package"   value={`${Math.round(pkg)}°C`}   color={tempColor} />
-                <Metric label="Freq"      value={`${freq.toFixed(2)} GHz`} color="hsl(var(--muted))" />
+                <Metric label={t('freq')}      value={`${freq.toFixed(2)} GHz`} color="hsl(var(--muted))" />
               </div>
             </div>
 
