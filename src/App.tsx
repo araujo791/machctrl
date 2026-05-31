@@ -79,7 +79,7 @@ function LoadingState({ state }: { state: string }) {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100%', gap:14 }}>
       <div style={{ width:44, height:44, borderRadius:'50%', border:'3px solid hsl(var(--border))', borderTopColor:'hsl(var(--accent))', animation:'spin 0.9s linear infinite' }} />
       <div style={{ fontSize:13, color:'hsl(var(--muted))' }}>
-        {state==='connecting'?'Conectando ao backend...' : state==='error'?'Erro — tentando reconectar...' : 'Backend desconectado'}
+        {state==='connecting' ? t('connecting') : state==='error' ? t('error') : t('backendOff')}
       </div>
       <button onClick={() => window.electron?.restartBackend()} style={{ fontSize:11, padding:'6px 14px', borderRadius:8, cursor:'pointer', border:'1px solid hsl(var(--border))', background:'transparent', color:'hsl(var(--muted))' }}>
         Reiniciar Backend

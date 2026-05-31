@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { FanCurveEditor } from './FanCurveEditor'
-import { t } from '../../i18n'
+import { t, tf } from '../../i18n'
 import fanBladeUrl from '../../assets/fan-blade.png'
 import type { SensorData } from '../../hooks/useSensorData'
 
@@ -84,11 +84,11 @@ function FanCard({ fan, onCommand, gpuTemp, fanCurves }: { fan: any; onCommand: 
       setFeedback(t('auto'))
     } else if (m === 'max') {
       onCommand({ action: 'set_fan_speed', fan: fan.name, speed: 100 })
-      setFeedback('Máximo — 100%')
+      setFeedback(t('fanMaxMode'))
     } else {
       const s = speed ?? manualPct
       onCommand({ action: 'set_fan_speed', fan: fan.name, speed: s })
-      setFeedback(`Manual — ${s}%`)
+      setFeedback(tf('fanManualPct', s))
     }
 
     setTimeout(() => { setApplying(false); setFeedback('') }, 2500)
@@ -204,7 +204,7 @@ function FanCard({ fan, onCommand, gpuTemp, fanCurves }: { fan: any; onCommand: 
             style={{ width: '100%', accentColor: 'hsl(var(--accent))', cursor: 'pointer' }}
           />
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, color: 'hsl(var(--muted))', opacity: 0.5, marginTop: 2 }}>
-            <span>Mínimo 15%</span><span>Máximo 100%</span>
+            <span>{t('fanMin15')}</span><span>{t('fanMax100')}</span>
           </div>
         </div>
       )}
@@ -231,7 +231,7 @@ function FanCard({ fan, onCommand, gpuTemp, fanCurves }: { fan: any; onCommand: 
               transition: 'all 0.15s',
               opacity: applying ? 0.6 : 1,
             }}>
-              {m === 'auto' ? 'Auto' : m === 'manual' ? 'Manual' : m === 'max' ? 'Máximo' : 'Curva'}
+              {m === 'auto' ? t('auto') : m === 'manual' ? t('manual') : m === 'max' ? t('max') : t('curve')}
             </button>
           ))}
         </div>

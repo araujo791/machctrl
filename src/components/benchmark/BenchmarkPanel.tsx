@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback } from 'react'
+import { t } from '../../i18n'
 import { Play, Square, Award, Cpu, MemoryStick, HardDrive } from 'lucide-react'
 
 interface BenchResult {
@@ -29,7 +30,7 @@ function runCpuBench(): Promise<BenchResult> {
       const elapsed = performance.now() - start
       const score = Math.round(100_000 / elapsed * 10) / 10
       resolve({
-        name: 'CPU (Crivo de Eratóstenes)',
+        name: t('benchCpu'),
         score, unit: 'pts/ms',
         detail: `${n.toLocaleString()} primos em ${elapsed.toFixed(0)}ms`,
         rating: score > 40 ? 'great' : score > 20 ? 'good' : score > 10 ? 'ok' : 'poor',
@@ -51,7 +52,7 @@ function runMemBench(): Promise<BenchResult> {
       const elapsed = performance.now() - start
       const bw = Math.round((size * 2) / elapsed / 1024 / 1024 * 1000) // MB/s
       resolve({
-        name: 'Memória (Largura de Banda)',
+        name: t('benchMem'),
         score: bw, unit: 'MB/s',
         detail: `${(size / 1024 / 1024).toFixed(0)}MB R+W em ${elapsed.toFixed(0)}ms · checksum: ${(sum % 9999).toFixed(0)}`,
         rating: bw > 20000 ? 'great' : bw > 10000 ? 'good' : bw > 5000 ? 'ok' : 'poor',
@@ -72,7 +73,7 @@ function runFpBench(): Promise<BenchResult> {
       const elapsed = performance.now() - start
       const score = Math.round(10_000_000 / elapsed)
       resolve({
-        name: 'CPU Ponto Flutuante',
+        name: t('benchFp'),
         score, unit: 'ops/ms',
         detail: `10M sqrt/log/sin em ${elapsed.toFixed(0)}ms · acc=${acc.toExponential(2)}`,
         rating: score > 200 ? 'great' : score > 100 ? 'good' : score > 50 ? 'ok' : 'poor',
@@ -104,9 +105,9 @@ export function BenchmarkPanel() {
     setResults([])
 
     const steps = [
-      { label: 'CPU — Crivo de Eratóstenes', fn: runCpuBench },
-      { label: 'CPU — Ponto Flutuante', fn: runFpBench },
-      { label: 'Memória — Largura de Banda', fn: runMemBench },
+      { label: t('benchCpuLabel'), fn: runCpuBench },
+      { label: t('benchFpLabel'), fn: runFpBench },
+      { label: t('benchMemLabel'), fn: runMemBench },
     ]
 
     const out: BenchResult[] = []

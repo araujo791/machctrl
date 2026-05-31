@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { t } from '../../i18n'
 import { Leaf, Settings2, Zap, Battery, Cpu, Gauge } from 'lucide-react'
 import type { SensorData } from '../../hooks/useSensorData'
 
@@ -6,7 +7,7 @@ const PROFILES = [
   {
     id: 'economia',
     raw: ['silent', 'powersave', 'economia'],
-    label: 'Economia',
+    label: t('powerEco'),
     icon: Leaf,
     desc: 'Baixo consumo · Silencioso · Sem turbo',
     color: 'hsl(152 100% 42%)',
@@ -16,7 +17,7 @@ const PROFILES = [
   {
     id: 'balanced',
     raw: ['balanced', 'schedutil'],
-    label: 'Equilibrado',
+    label: t('powerBalanced'),
     icon: Settings2,
     desc: 'Desempenho adaptativo · Recomendado',
     color: 'hsl(217 100% 62%)',
@@ -26,9 +27,9 @@ const PROFILES = [
   {
     id: 'performance',
     raw: ['performance'],
-    label: 'Desempenho',
+    label: t('powerPerf'),
     icon: Zap,
-    desc: 'Máximo desempenho · Turbo ativo',
+    desc: t('powerPerf') + ' · Turbo',
     color: 'hsl(32 100% 55%)',
     bg: 'hsl(32 100% 55% / 0.1)',
     border: 'hsl(32 100% 55% / 0.4)',
@@ -84,9 +85,9 @@ export function PowerPanel({ data, onCommand }: PowerPanelProps) {
 
   // Info extra por perfil
   const extraInfo: Record<string, { power: string; turbo: string; perf: string }> = {
-    economia:    { power: 'Baixo',  turbo: 'Desligado', perf: '15–50%' },
-    balanced:    { power: 'Médio',  turbo: 'Automático', perf: '20–80%' },
-    performance: { power: 'Alto',   turbo: 'Ligado',     perf: '30–100%' },
+    economia:    { power: t('powerLow'),  turbo: t('powerTurboOff'), perf: '15–50%' },
+    balanced:    { power: t('powerMid'),  turbo: t('powerTurboAuto'), perf: '20–80%' },
+    performance: { power: t('powerHigh'),   turbo: t('powerTurboOn'),     perf: '30–100%' },
   }
 
   return (

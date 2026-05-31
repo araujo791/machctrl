@@ -1,4 +1,5 @@
 import { Cpu, MemoryStick, HardDrive, Wind, Zap, Trash2, Gauge, Info } from 'lucide-react'
+import { t } from '../../i18n'
 
 export type Tab = 'overview' | 'cpu' | 'memory' | 'disks' | 'fans' | 'power' | 'cleaner' | 'benchmark' | 'about'
 
@@ -8,15 +9,15 @@ interface SidebarProps {
 }
 
 const ITEMS: Array<{ id: Tab; icon: any; label: string; divider?: boolean }> = [
-  { id: 'overview',   icon: Gauge,       label: 'Visão Geral' },
-  { id: 'cpu',        icon: Cpu,         label: 'CPU' },
-  { id: 'memory',     icon: MemoryStick, label: 'Memória' },
-  { id: 'disks',      icon: HardDrive,   label: 'Discos' },
-  { id: 'fans',       icon: Wind,        label: 'Fans' },
-  { id: 'power',      icon: Zap,         label: 'Energia', divider: true },
-  { id: 'cleaner',    icon: Trash2,      label: 'Limpeza' },
-  { id: 'benchmark',  icon: Gauge,       label: 'Benchmark' },
-  { id: 'about',      icon: Info,        label: 'Sobre' },
+  { id: 'overview',   icon: Gauge,       label: t('sideOverview') },
+  { id: 'cpu',        icon: Cpu,         label: t('sideCpu') },
+  { id: 'memory',     icon: MemoryStick, label: t('sideMemory') },
+  { id: 'disks',      icon: HardDrive,   label: t('sideDisks') },
+  { id: 'fans',       icon: Wind,        label: t('sideFans') },
+  { id: 'power',      icon: Zap,         label: t('sidePower'), divider: true },
+  { id: 'cleaner',    icon: Trash2,      label: t('sideCleaner') },
+  { id: 'benchmark',  icon: Gauge,       label: t('sideBenchmark') },
+  { id: 'about',      icon: Info,        label: t('sideAbout') },
 ]
 
 export function Sidebar({ active, onChange }: SidebarProps) {

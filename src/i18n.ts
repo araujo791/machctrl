@@ -43,11 +43,47 @@ const translations = {
     // General
     connected: 'Conectado',
     disconnected: 'Desconectado',
-    connecting: 'Conectando...',
+    connecting: 'Conectando ao backend...',
+    error: 'Erro — tentando reconectar...',
+    backendOff: 'Backend desconectado',
     loading: 'Carregando...',
     temperature: 'Temperatura',
     usage: 'Uso',
     rpm: 'RPM',
+    minimum: 'Mínimo',
+    maximum: 'Máximo',
+    // Sidebar
+    sideOverview: 'Visão Geral',
+    sideCpu: 'CPU',
+    sideMemory: 'Memória',
+    sideDisks: 'Discos',
+    sideFans: 'Fans',
+    sidePower: 'Energia',
+    sideCleaner: 'Limpeza',
+    sideBenchmark: 'Benchmark',
+    sideAbout: 'Sobre',
+    // Fan
+    fanMin15: 'Mínimo 15%',
+    fanMax100: 'Máximo 100%',
+    fanManualPct: (p: number) => `Manual — ${p}%`,
+    fanMaxMode: 'Máximo — 100%',
+    // Power
+    powerEco: 'Economia',
+    powerBalanced: 'Equilibrado',
+    powerPerf: 'Desempenho',
+    powerLow: 'Baixo',
+    powerMid: 'Médio',
+    powerHigh: 'Alto',
+    powerTurboOff: 'Desligado',
+    powerTurboAuto: 'Automático',
+    powerTurboOn: 'Ligado',
+    // Benchmark
+    benchCpu: 'CPU (Crivo de Eratóstenes)',
+    benchMem: 'Memória (Largura de Banda)',
+    benchFp: 'CPU Ponto Flutuante',
+    benchCpuLabel: 'CPU — Crivo de Eratóstenes',
+    benchFpLabel: 'CPU — Ponto Flutuante',
+    benchMemLabel: 'Memória — Largura de Banda',
   },
   en: {
     // Sidebar / tabs
@@ -82,16 +118,58 @@ const translations = {
     // General
     connected: 'Connected',
     disconnected: 'Disconnected',
-    connecting: 'Connecting...',
+    connecting: 'Connecting to backend...',
+    error: 'Error — trying to reconnect...',
+    backendOff: 'Backend disconnected',
     loading: 'Loading...',
     temperature: 'Temperature',
     usage: 'Usage',
     rpm: 'RPM',
+    minimum: 'Minimum',
+    maximum: 'Maximum',
+    // Sidebar
+    sideOverview: 'Overview',
+    sideCpu: 'CPU',
+    sideMemory: 'Memory',
+    sideDisks: 'Disks',
+    sideFans: 'Fans',
+    sidePower: 'Power',
+    sideCleaner: 'Cleaner',
+    sideBenchmark: 'Benchmark',
+    sideAbout: 'About',
+    // Fan
+    fanMin15: 'Minimum 15%',
+    fanMax100: 'Maximum 100%',
+    fanManualPct: (p: number) => `Manual — ${p}%`,
+    fanMaxMode: 'Maximum — 100%',
+    // Power
+    powerEco: 'Power Saver',
+    powerBalanced: 'Balanced',
+    powerPerf: 'Performance',
+    powerLow: 'Low',
+    powerMid: 'Medium',
+    powerHigh: 'High',
+    powerTurboOff: 'Off',
+    powerTurboAuto: 'Auto',
+    powerTurboOn: 'On',
+    // Benchmark
+    benchCpu: 'CPU (Sieve of Eratosthenes)',
+    benchMem: 'Memory (Bandwidth)',
+    benchFp: 'CPU Floating Point',
+    benchCpuLabel: 'CPU — Sieve of Eratosthenes',
+    benchFpLabel: 'CPU — Floating Point',
+    benchMemLabel: 'Memory — Bandwidth',
   },
 }
 
 type TranslationKey = keyof typeof translations.pt
 
 export function t(key: TranslationKey): string {
-  return translations[lang][key] ?? translations.en[key] ?? key
+  const val = translations[lang][key] ?? translations.en[key] ?? key
+  return typeof val === 'function' ? key : val as string
+}
+
+export function tf(key: TranslationKey, ...args: any[]): string {
+  const fn = (translations[lang][key] ?? translations.en[key]) as any
+  return typeof fn === 'function' ? fn(...args) : String(fn ?? key)
 }
