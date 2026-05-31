@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { t, tf } from '../../i18n'
 import { t } from '../../i18n'
 import { Leaf, Settings2, Zap, Battery, Cpu, Gauge } from 'lucide-react'
 import type { SensorData } from '../../hooks/useSensorData'
@@ -78,7 +79,7 @@ export function PowerPanel({ data, onCommand }: PowerPanelProps) {
     // Libera após 2s (tempo para o backend aplicar e responder)
     setTimeout(() => {
       setApplying(false)
-      setFeedback(`Perfil "${p.label}" aplicado`)
+      setFeedback(tf('profileApplied', p.label))
       setTimeout(() => setFeedback(''), 3000)
     }, 2000)
   }
@@ -184,7 +185,7 @@ export function PowerPanel({ data, onCommand }: PowerPanelProps) {
 
       {/* Nota */}
       <div style={{ fontSize: 10, color: 'hsl(var(--muted))', opacity: 0.6, textAlign: 'center' }}>
-        O perfil é aplicado imediatamente e persiste até reiniciar o serviço. Para persistir após reboot, configure o <code>cpupower</code> no systemd.
+        {t('powerPersistHint')}
       </div>
     </div>
   )

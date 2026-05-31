@@ -30,11 +30,11 @@ export function MemoryPanel({ data }: MemoryPanelProps) {
               boxShadow: mem.usage > 65 ? `0 0 12px ${color}66` : 'none' }} />
           </div>
           <div style={{ marginTop: 8, display: 'flex', gap: 16 }}>
-            <Info label="Total" value={`${mem.total_gb.toFixed(1)} GB`} />
-            <Info label="Usado" value={`${mem.used_gb.toFixed(1)} GB`} />
-            <Info label="Livre" value={`${(mem.total_gb - mem.used_gb).toFixed(1)} GB`} />
+            <Info label={t('total')} value={`${mem.total_gb.toFixed(1)} GB`} />
+            <Info label={t('used')} value={`${mem.used_gb.toFixed(1)} GB`} />
+            <Info label={t('free')} value={`${(mem.total_gb - mem.used_gb).toFixed(1)} GB`} />
             {mem.total_slots > 0 && (
-              <Info label="Slots" value={`${mem.occupied_slots}/${mem.total_slots}`} />
+              <Info label={t('slots')} value={`${mem.occupied_slots}/${mem.total_slots}`} />
             )}
           </div>
         </div>
@@ -104,7 +104,7 @@ export function MemoryPanel({ data }: MemoryPanelProps) {
           border: '1px solid hsl(var(--border))',
           fontSize: 12, color: 'hsl(var(--muted))',
         }}>
-          💡 Execute o serviço como root ou configure sudoers para <code>dmidecode</code> e ver detalhes dos módulos.
+          {t('memDmidecodeHint')}
         </div>
       )}
     </div>

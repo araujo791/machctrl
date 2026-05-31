@@ -175,7 +175,7 @@ function FanCard({ fan, onCommand, gpuTemp, fanCurves }: { fan: any; onCommand: 
       {fan.has_pwm && pct > 0 && (
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'hsl(var(--muted))', marginBottom: 4 }}>
-            <span>PWM atual</span>
+            <span>{t('currentPwm')}</span>
             <span style={{ fontFamily: 'JetBrains Mono', color: 'hsl(var(--text))' }}>{pct}%</span>
           </div>
           <div style={{ height: 4, borderRadius: 2, background: 'hsl(var(--border))' }}>
@@ -192,7 +192,7 @@ function FanCard({ fan, onCommand, gpuTemp, fanCurves }: { fan: any; onCommand: 
       {mode === 'manual' && fan.has_pwm && (
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'hsl(var(--muted))', marginBottom: 6 }}>
-            <span>Velocidade manual</span>
+            <span>{t('manualSpeed')}</span>
             <span style={{ fontFamily: 'JetBrains Mono', color: 'hsl(var(--accent))', fontWeight: 700 }}>{manualPct}%</span>
           </div>
           <input
@@ -245,7 +245,7 @@ function FanCard({ fan, onCommand, gpuTemp, fanCurves }: { fan: any; onCommand: 
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
         }}>
           <span>📈</span>
-          <span>Curva ativa — clique para editar</span>
+          <span>{t('curveActive')}</span>
         </div>
       )}
 

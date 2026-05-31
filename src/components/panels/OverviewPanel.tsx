@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { t } from '../../i18n'
 import { RingGauge } from '../shared/RingGauge'
 import { Sparkline } from '../shared/Sparkline'
 import { normalizeDisks } from './DisksPanel'
@@ -103,7 +104,7 @@ export function OverviewPanel({ data, cpuHistory }: OverviewProps) {
         <div style={{ flex: 1, minWidth: 260 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 4 }}>
             <div style={{ fontSize: 22, fontWeight: 800, color: 'hsl(var(--text))', letterSpacing: '-0.02em', lineHeight: 1.1 }}>
-              {sys.board || sys.hostname || 'Sistema'}
+              {sys.board || sys.hostname || t('system')}
             </div>
             {powerWatts > 0 && (
               <div style={{
@@ -128,10 +129,10 @@ export function OverviewPanel({ data, cpuHistory }: OverviewProps) {
           </div>
           <div style={{ height: 1, background: 'hsl(var(--border))', marginBottom: 12 }} />
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 24px' }}>
-            <Spec label="Processador" value={cpuShort || '—'} />
+            <Spec label={t('processor')} value={cpuShort || '—'} />
             <Spec label="GPU"         value={gpuName  || '—'} />
-            <Spec label="Memória"     value={`${ramTotal.toFixed(0)} GB RAM`} />
-            <Spec label="Armazenamento" value={totalDiskGb > 0 ? fmtStorage(totalDiskGb) : '—'} />
+            <Spec label={t('memory')}     value={`${ramTotal.toFixed(0)} GB RAM`} />
+            <Spec label={t('storage')} value={totalDiskGb > 0 ? fmtStorage(totalDiskGb) : '—'} />
             {sys.bios_date && <Spec label="BIOS" value={`${sys.bios_vendor || ''} ${sys.bios_date}`.trim()} />}
             {sys.uptime && <Spec label="Uptime" value={sys.uptime} />}
           </div>
@@ -140,7 +141,7 @@ export function OverviewPanel({ data, cpuHistory }: OverviewProps) {
         {battery && (
           <div style={{ minWidth: 160 }}>
             <Card>
-              <CardTitle>Bateria</CardTitle>
+              <CardTitle>{t('battery')}</CardTitle>
               <div style={{ fontSize: 28, fontWeight: 800, fontFamily: 'JetBrains Mono', color: battery.percent > 20 ? 'hsl(var(--green))' : 'hsl(var(--red))', marginBottom: 6 }}>
                 {battery.percent}%
               </div>
@@ -161,13 +162,13 @@ export function OverviewPanel({ data, cpuHistory }: OverviewProps) {
 
         {/* RAM */}
         <Card>
-          <CardTitle>Memória RAM</CardTitle>
+          <CardTitle>{t('ramMemory')}</CardTitle>
           <div style={{ display: 'flex', gap: 14, alignItems: 'center', marginBottom: 10 }}>
             <RingGauge value={mem?.usage ?? 0} size={80} thickness={8} color={colorPct(mem?.usage ?? 0)} label="RAM" unit="%" />
             <div style={{ flex: 1 }}>
               <Row label="Em uso" value={`${ramUsed.toFixed(1)} GB`} color={colorPct(mem?.usage ?? 0)} />
-              <Row label="Livre"  value={`${ramFree.toFixed(1)} GB`} />
-              <Row label="Total"  value={`${ramTotal.toFixed(1)} GB`} />
+              <Row label={t('free')}  value={`${ramFree.toFixed(1)} GB`} />
+              <Row label={t('total')}  value={`${ramTotal.toFixed(1)} GB`} />
               {swapInfo && <Row label="Swap" value={`${swapInfo.used_gb?.toFixed(1)}/${swapInfo.total_gb?.toFixed(1)} GB`} />}
             </div>
           </div>
@@ -215,8 +216,8 @@ export function OverviewPanel({ data, cpuHistory }: OverviewProps) {
                   <Row label="VRAM usada" value={`${gpu.vram_used_gb?.toFixed(1)} GB`} />
                   <Row label="VRAM total" value={`${gpu.vram_total_gb?.toFixed(1)} GB`} />
                 </>}
-                {gpuDriver && <Row label="Driver" value={gpuDriver} />}
-                {gpu.power_w != null && <Row label="Potência" value={`${gpu.power_w} W`} />}
+                {gpuDriver && <Row label={t('driver')} value={gpuDriver} />}
+                {gpu.power_w != null && <Row label={t('power')} value={`${gpu.power_w} W`} />}
               </div>
             </div>
 
@@ -259,7 +260,7 @@ export function OverviewPanel({ data, cpuHistory }: OverviewProps) {
                     <div style={{ flex: 1 }}>
                       <Row label="Uso"  value={`${Math.round(usage)}%`}        color={colorPct(usage)} />
                       <Row label="Temp" value={`${Math.round(cpu.package)}°C`} color={colorTemp(cpu.package)} />
-                      <Row label="Freq" value={`${freq.toFixed(1)} GHz`} />
+                      <Row label={t('freq')} value={`${freq.toFixed(1)} GHz`} />
                     </div>
                   </div>
                   <div style={{ height: 28 }}>
@@ -285,7 +286,7 @@ export function OverviewPanel({ data, cpuHistory }: OverviewProps) {
         {/* Disco */}
         {sysDisk && (
           <Card>
-            <CardTitle>Disco do Sistema</CardTitle>
+            <CardTitle>{t('systemDisk')}</CardTitle>
             <div style={{ display: 'flex', gap: 14, alignItems: 'center', marginBottom: 10 }}>
               <RingGauge value={sysDisk.usage} size={72} thickness={7} color={colorPct(sysDisk.usage)} label={sysDisk.usage + '%'} unit="" />
               <div style={{ flex: 1 }}>
@@ -295,7 +296,7 @@ export function OverviewPanel({ data, cpuHistory }: OverviewProps) {
                 <Row label="Em uso" value={`${sysDisk.used_gb.toFixed(1)} GB`}                            color={colorPct(sysDisk.usage)} />
                 <Row label="Livre"  value={`${(sysDisk.total_gb - sysDisk.used_gb).toFixed(1)} GB`} />
                 <Row label="Total"  value={`${sysDisk.total_gb.toFixed(1)} GB`} />
-                <Row label="Tipo"   value={(sysDisk.disk_type || '').toUpperCase()} />
+                <Row label={t('type')}   value={(sysDisk.disk_type || '').toUpperCase()} />
               </div>
             </div>
             <div style={{ fontSize: 10, color: 'hsl(var(--muted))', marginTop: 4 }}>
@@ -306,7 +307,7 @@ export function OverviewPanel({ data, cpuHistory }: OverviewProps) {
 
         {/* Rede — sempre renderiza o card */}
         <Card>
-          <CardTitle>Rede</CardTitle>
+          <CardTitle>{t('network')}</CardTitle>
           {(!network.adapters || network.adapters.length === 0) ? (
             <div style={{ fontSize: 11, color: 'hsl(var(--muted))', padding: '8px 0' }}>
               Nenhum adaptador detectado

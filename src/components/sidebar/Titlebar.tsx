@@ -77,9 +77,9 @@ export function Titlebar({ connected = false, theme, onToggleTheme, onToggleLang
 
       {/* Right: theme + window controls */}
       <div className="no-drag" style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-        <WinBtn onClick={onToggleLang} hoverColor="hsl(var(--accent))" title={currentLang === 'pt' ? 'Switch to English' : 'Mudar para Português'}>
+        <WinBtn onClick={onToggleLang} hoverColor="hsl(var(--accent))" title={currentLang === 'pt' ? 'Switch to English' : 'Mudar para Português (BR)'}>
           <span style={{ fontSize: 11, fontWeight: 700, fontFamily: 'JetBrains Mono' }}>
-            {currentLang === 'pt' ? 'EN' : 'PT'}
+            {currentLang === 'pt' ? 'EN' : 'BR'}
           </span>
         </WinBtn>
         <WinBtn onClick={onToggleTheme} hoverColor="hsl(var(--accent))">

@@ -89,7 +89,7 @@ const RATING_COLOR: Record<string, string> = {
   poor:  'hsl(var(--red))',
 }
 const RATING_LABEL: Record<string, string> = {
-  great: 'Excelente', good: 'Bom', ok: 'Regular', poor: 'Fraco'
+  great: t('excellent'), good: t('good'), ok: t('ok2'), poor: t('poor')
 }
 
 export function BenchmarkPanel() {
@@ -157,7 +157,7 @@ export function BenchmarkPanel() {
               <Btn onClick={stop} danger><Square size={13} /> Parar</Btn>
             ) : (
               <>
-                {results.length > 0 && <Btn onClick={reset} secondary>Resetar</Btn>}
+                {results.length > 0 && <Btn onClick={reset} secondary>{t('reset')}</Btn>}
                 <Btn onClick={run}><Play size={13} /> Iniciar</Btn>
               </>
             )}
