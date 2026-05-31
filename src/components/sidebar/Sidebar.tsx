@@ -9,15 +9,15 @@ interface SidebarProps {
 }
 
 const ITEMS: Array<{ id: Tab; icon: any; label: string; divider?: boolean }> = [
-  { id: 'overview',   icon: Gauge,       label: t('sideOverview') },
-  { id: 'cpu',        icon: Cpu,         label: t('sideCpu') },
-  { id: 'memory',     icon: MemoryStick, label: t('sideMemory') },
-  { id: 'disks',      icon: HardDrive,   label: t('sideDisks') },
-  { id: 'fans',       icon: Wind,        label: t('sideFans') },
-  { id: 'power',      icon: Zap,         label: t('sidePower'), divider: true },
-  { id: 'cleaner',    icon: Trash2,      label: t('sideCleaner') },
-  { id: 'benchmark',  icon: Gauge,       label: t('sideBenchmark') },
-  { id: 'about',      icon: Info,        label: t('sideAbout') },
+  { id: 'overview',   icon: Gauge,       label: t('overview') },
+  { id: 'cpu',        icon: Cpu,         label: t('cpu') },
+  { id: 'memory',     icon: MemoryStick, label: t('memory') },
+  { id: 'disks',      icon: HardDrive,   label: t('disks') },
+  { id: 'fans',       icon: Wind,        label: t('fans') },
+  { id: 'power',      icon: Zap,         label: t('power'), divider: true },
+  { id: 'cleaner',    icon: Trash2,      label: t('cleaner') },
+  { id: 'benchmark',  icon: Gauge,       label: t('benchmark') },
+  { id: 'about',      icon: Info,        label: t('about') },
 ]
 
 export function Sidebar({ active, onChange }: SidebarProps) {
