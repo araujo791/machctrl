@@ -201,7 +201,7 @@ export function OverviewPanel({ data, cpuHistory }: OverviewProps) {
                 {gpuVendor || 'GPU'}
               </div>
               <div style={{ fontSize: 15, fontWeight: 800, color: 'hsl(var(--text))', lineHeight: 1.2, wordBreak: 'break-word' }}>
-                {gpuName || 'Placa de Vídeo'}
+                {gpuName || t('videoCard')}
               </div>
             </div>
 
@@ -294,8 +294,8 @@ export function OverviewPanel({ data, cpuHistory }: OverviewProps) {
                   {sysDisk.mount}
                 </div>
                 <Row label="Em uso" value={`${sysDisk.used_gb.toFixed(1)} GB`}                            color={colorPct(sysDisk.usage)} />
-                <Row label="Livre"  value={`${(sysDisk.total_gb - sysDisk.used_gb).toFixed(1)} GB`} />
-                <Row label="Total"  value={`${sysDisk.total_gb.toFixed(1)} GB`} />
+                <Row label={t("free")}  value={`${(sysDisk.total_gb - sysDisk.used_gb).toFixed(1)} GB`} />
+                <Row label={t("total")}  value={`${sysDisk.total_gb.toFixed(1)} GB`} />
                 <Row label={t('type')}   value={(sysDisk.disk_type || '').toUpperCase()} />
               </div>
             </div>

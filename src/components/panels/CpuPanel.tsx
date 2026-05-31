@@ -1,3 +1,4 @@
+import { t, tf } from '../../i18n'
 import { useRef, useEffect, useState } from 'react'
 import { Sparkline } from '../shared/Sparkline'
 import type { SensorData } from '../../hooks/useSensorData'
@@ -15,7 +16,7 @@ export function CpuPanel({ data, cpuHistory }: CpuPanelProps) {
 
   if (!cpusTemps.length) return (
     <div style={{ textAlign: 'center', padding: 48, color: 'hsl(var(--muted))' }}>
-      Aguardando dados do CPU...
+      {t('waitingCpu')}
     </div>
   )
 
@@ -145,7 +146,7 @@ function ThreadGrid({ cores, pkgTemp, accentColor }: {
           return (
             <div
               key={thread.id}
-              title={`Thread ${thread.id} | Uso: ${Math.round(usage)}% | Temp: ${Math.round(temp)}°C`}
+              title={tf('threadTooltip', thread.id, Math.round(usage), Math.round(temp))}
               style={{
                 aspectRatio: '1 / 1',
                 borderRadius: 7,

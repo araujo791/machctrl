@@ -1,3 +1,4 @@
+import { t } from '../../i18n'
 import { RingGauge } from '../shared/RingGauge'
 import type { SensorData } from '../../hooks/useSensorData'
 
@@ -5,7 +6,7 @@ interface MemoryPanelProps { data: SensorData }
 
 export function MemoryPanel({ data }: MemoryPanelProps) {
   const mem = data.memory
-  if (!mem) return <Empty text="Aguardando dados de memória..." />
+  if (!mem) return <Empty text={t("loading")} />
 
   const color = mem.usage > 85 ? 'hsl(var(--red))' : mem.usage > 65 ? 'hsl(var(--orange))' : 'hsl(var(--accent))'
 

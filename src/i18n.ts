@@ -78,6 +78,26 @@ const translations = {
     // Power
     profileApplied: (label: string) => `Perfil "${label}" aplicado`,
     powerPersistHint: 'O perfil é aplicado imediatamente e persiste até reiniciar o serviço. Para persistir após reboot, configure o cpupower no systemd.',
+    // CPU
+    waitingCpu: 'Aguardando dados do CPU...',
+    threadTooltip: (id: number, u: number, t: number) => `Thread ${id} | Uso: ${u}% | Temp: ${t}°C`,
+    temperatureC: 'Temperatura (°C)',
+    // Disks
+    read: 'Leitura',
+    write: 'Escrita',
+    // Cleaner
+    cleanerTitle: 'Limpeza do Sistema',
+    detectingTools: 'Detectando ferramentas...',
+    tasksAvailable: (n: number) => `${n} tarefas disponíveis`,
+    cleanAll: 'Limpar Tudo',
+    detecting: 'Detectando ferramentas instaladas...',
+    totalFreed: 'Total Liberado',
+    run: 'Executar',
+    timeout: 'Timeout (>30s)',
+    // Overview extras
+    videoCard: 'Placa de Vídeo',
+    powerDescEco: 'Baixo consumo · Silencioso · Sem turbo',
+    powerDescBal: 'Desempenho adaptativo · Recomendado',
     // Benchmark
     reset: 'Resetar',
     excellent: 'Excelente',
@@ -186,6 +206,26 @@ const translations = {
     // Power
     profileApplied: (label: string) => `Profile "${label}" applied`,
     powerPersistHint: 'The profile is applied immediately and persists until the service restarts. To persist after reboot, configure cpupower in systemd.',
+    // CPU
+    waitingCpu: 'Waiting for CPU data...',
+    threadTooltip: (id: number, u: number, t: number) => `Thread ${id} | Usage: ${u}% | Temp: ${t}°C`,
+    temperatureC: 'Temperature (°C)',
+    // Disks
+    read: 'Read',
+    write: 'Write',
+    // Cleaner
+    cleanerTitle: 'System Cleaner',
+    detectingTools: 'Detecting tools...',
+    tasksAvailable: (n: number) => `${n} tasks available`,
+    cleanAll: 'Clean All',
+    detecting: 'Detecting installed tools...',
+    totalFreed: 'Total Freed',
+    run: 'Run',
+    timeout: 'Timeout (>30s)',
+    // Overview extras
+    videoCard: 'Graphics Card',
+    powerDescEco: 'Low power · Silent · No turbo',
+    powerDescBal: 'Adaptive performance · Recommended',
     // Benchmark
     reset: 'Reset',
     excellent: 'Excellent',

@@ -1,3 +1,4 @@
+import { t, tf } from '../../i18n'
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { Trash2, RefreshCw, CheckCircle, AlertCircle, Loader } from 'lucide-react'
 
@@ -60,7 +61,7 @@ export function CleanerPanel({ sendCommand, addMessageListener }: Props) {
       setTimeout(() => {
         if (resolvers.current[taskId]) {
           delete resolvers.current[taskId]
-          update(taskId, { status: 'error', result: 'Timeout (>30s)' })
+          update(taskId, { status: 'error', result: t('timeout') })
           resolve({ bytes: 0 })
         }
       }, 30000)
@@ -112,9 +113,9 @@ export function CleanerPanel({ sendCommand, addMessageListener }: Props) {
       <div style={{ padding: '16px 18px', borderRadius: 14, background: 'hsl(var(--surface))', border: '1px solid hsl(var(--border))' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: running || doneCount > 0 ? 12 : 0 }}>
           <div>
-            <div style={{ fontSize: 14, fontWeight: 700, color: 'hsl(var(--text))' }}>Limpeza do Sistema</div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: 'hsl(var(--text))' }}>{t('cleanerTitle')}</div>
             <div style={{ fontSize: 11, color: 'hsl(var(--muted))', marginTop: 2 }}>
-              {loading ? 'Detectando ferramentas...' : `${tasks.length} tarefas disponíveis`}
+              {loading ? t('detectingTools') : tf('tasksAvailable', tasks.length)}
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
@@ -124,7 +125,7 @@ export function CleanerPanel({ sendCommand, addMessageListener }: Props) {
             <Btn onClick={runAll} disabled={running || loading || tasks.length === 0}>
               {running
                 ? <><Loader size={13} style={{ animation: 'spin 0.8s linear infinite' }} /> Limpando...</>
-                : <><Trash2 size={13} /> Limpar Tudo</>}
+                : <><Trash2 size={13} /> {t('cleanAll')}</>}
             </Btn>
           </div>
         </div>
@@ -146,7 +147,7 @@ export function CleanerPanel({ sendCommand, addMessageListener }: Props) {
       {loading && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '20px', color: 'hsl(var(--muted))', fontSize: 13 }}>
           <div style={{ width: 16, height: 16, borderRadius: '50%', border: '2px solid hsl(var(--accent))', borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite' }} />
-          Detectando ferramentas instaladas...
+          {t('detecting')}
         </div>
       )}
 
@@ -157,7 +158,7 @@ export function CleanerPanel({ sendCommand, addMessageListener }: Props) {
           background: 'linear-gradient(135deg, hsl(var(--accent)/0.08), hsl(var(--green)/0.06))',
           border: '1px solid hsl(var(--accent)/0.25)',
         }}>
-          <div style={{ fontSize: 11, color: 'hsl(var(--muted))', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Total Liberado</div>
+          <div style={{ fontSize: 11, color: 'hsl(var(--muted))', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('totalFreed')}</div>
           <span style={{ fontSize: 28, fontWeight: 900, fontFamily: 'JetBrains Mono', color: 'hsl(var(--accent))' }}>
             {fmtBytes(totalBytes)}
           </span>
@@ -210,7 +211,7 @@ export function CleanerPanel({ sendCommand, addMessageListener }: Props) {
                   background: 'transparent', color: 'hsl(var(--text))', fontSize: 11,
                   cursor: 'pointer', flexShrink: 0,
                 }}>
-                  Executar
+                  {t('run')}
                 </button>
               )}
             </div>

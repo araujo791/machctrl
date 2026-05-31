@@ -1,3 +1,4 @@
+import { t } from '../../i18n'
 import { HardDrive, ArrowUp, ArrowDown } from 'lucide-react'
 import { Sparkline } from '../shared/Sparkline'
 import { useEffect, useRef } from 'react'
@@ -135,7 +136,7 @@ export function DisksPanel({ data }: DisksPanelProps) {
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, color: 'hsl(var(--muted))', marginBottom: 2 }}>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                    <ArrowDown size={9} color="hsl(var(--green))" /> Leitura
+                    <ArrowDown size={9} color="hsl(var(--green))" /> {t('read')}
                   </span>
                   <span style={{ fontFamily: 'JetBrains Mono', color: 'hsl(var(--green))' }}>
                     {disk.read_mb.toFixed(1)} MB/s
@@ -146,7 +147,7 @@ export function DisksPanel({ data }: DisksPanelProps) {
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, color: 'hsl(var(--muted))', marginBottom: 2 }}>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                    <ArrowUp size={9} color="hsl(var(--orange))" /> Escrita
+                    <ArrowUp size={9} color="hsl(var(--orange))" /> {t('write')}
                   </span>
                   <span style={{ fontFamily: 'JetBrains Mono', color: 'hsl(var(--orange))' }}>
                     {disk.write_mb.toFixed(1)} MB/s
