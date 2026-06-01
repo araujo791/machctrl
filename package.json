@@ -1,6 +1,6 @@
 {
   "name": "machctrl",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "MachCtrl \u2014 Monitor e Otimizador de Hardware para Linux",
   "homepage": "https://github.com/araujo791/solus-os-gateway",
   "main": "electron/main.js",
