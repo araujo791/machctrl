@@ -66,7 +66,7 @@ export function App() {
             {data && tab==='power'     && <div style={{overflowY:'auto',height:'100%',paddingTop:4}}><PowerPanel data={data} onCommand={sendCommand} /></div>}
             {tab==='cleaner'           && <CleanerPanel sendCommand={sendCommand} addMessageListener={addMessageListener} />}
             {tab==='benchmark'         && <BenchmarkPanel />}
-            {tab==='about'             && <AboutPanel theme={theme} onToggleTheme={toggle} />}
+            {tab==='about'             && <AboutPanel theme={theme} onToggleTheme={toggle} osName={(data?.system as any)?.os?.split(' ')[0] ?? 'Linux'} />}
           </div>
         </main>
       </div>
@@ -89,7 +89,7 @@ function LoadingState({ state }: { state: string }) {
   )
 }
 
-function AboutPanel({ theme, onToggleTheme }: { theme: string; onToggleTheme: () => void }) {
+function AboutPanel({ theme, onToggleTheme, osName }: { theme: string; onToggleTheme: () => void; osName?: string }) {
   const handleAutostart = async () => {
     try {
       await window.electron?.setAutostart(true)
@@ -120,7 +120,7 @@ function AboutPanel({ theme, onToggleTheme }: { theme: string; onToggleTheme: ()
         <div style={{ fontSize:26, fontWeight:900, color:'hsl(var(--text))' }}>MachCtrl</div>
         <div style={{ fontSize:13, color:'hsl(var(--muted))', marginTop:4 }}>{t('appDesc')}</div>
         <div style={{ display:'inline-flex', alignItems:'center', gap:8, marginTop:8, padding:'3px 14px', borderRadius:20, background:'hsl(var(--surface))', border:'1px solid hsl(var(--border))', fontSize:11, color:'hsl(var(--muted))' }}>
-          v{version} · {(data?.system as any)?.os?.split(' ')[0] ?? 'Linux'} · Electron + React
+          v{version} · {osName ?? 'Linux'} · Electron + React
         </div>
       </div>
 
