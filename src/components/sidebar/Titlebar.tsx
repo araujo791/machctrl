@@ -3,6 +3,7 @@ import { Minus, Square, X, Maximize2, Sun, Moon } from 'lucide-react'
 import appIconUrl from '../../assets/app-icon.webp'
 import type { Theme } from '../../hooks/useTheme'
 import { lang, t } from '../../i18n'
+import { version } from '../../../package.json'
 
 interface TitlebarProps {
   connected?: boolean
@@ -60,7 +61,7 @@ export function Titlebar({ connected = false, theme, onToggleTheme, onToggleLang
         <span style={{
           fontSize: 10, padding: '1px 6px', borderRadius: 5,
           background: 'hsl(var(--border))', color: 'hsl(var(--muted))',
-        }}>v2.0</span>
+        }}>{`v${version.split('.').slice(0,2).join('.')}`}</span>
       </div>
 
       {/* Center: connection status */}

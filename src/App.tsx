@@ -13,6 +13,7 @@ import { useSensorData } from './hooks/useSensorData'
 import { useTheme } from './hooks/useTheme'
 import { useState } from 'react'
 import appIconUrl from './assets/app-icon.webp'
+import { version } from '../package.json'
 import { t } from './i18n'
 import { useLang } from './hooks/useLang'
 
@@ -119,7 +120,7 @@ function AboutPanel({ theme, onToggleTheme }: { theme: string; onToggleTheme: ()
         <div style={{ fontSize:26, fontWeight:900, color:'hsl(var(--text))' }}>MachCtrl</div>
         <div style={{ fontSize:13, color:'hsl(var(--muted))', marginTop:4 }}>{t('appDesc')}</div>
         <div style={{ display:'inline-flex', alignItems:'center', gap:8, marginTop:8, padding:'3px 14px', borderRadius:20, background:'hsl(var(--surface))', border:'1px solid hsl(var(--border))', fontSize:11, color:'hsl(var(--muted))' }}>
-          v2.0.0 · CachyOS / Arch · Electron + React
+          v{version} · {(data?.system as any)?.os?.split(' ')[0] ?? 'Linux'} · Electron + React
         </div>
       </div>
 
