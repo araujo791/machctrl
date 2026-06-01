@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { FanCurveEditor } from './FanCurveEditor'
 import { t, tf } from '../../i18n'
-import fanBladeUrl from '../../assets/fan-blade.png'
+import fanBladeUrl from '../../assets/fan-blade.webp'
 import type { SensorData } from '../../hooks/useSensorData'
 
 interface FansPanelProps {

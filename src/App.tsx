@@ -12,7 +12,7 @@ import { BenchmarkPanel } from './components/benchmark/BenchmarkPanel'
 import { useSensorData } from './hooks/useSensorData'
 import { useTheme } from './hooks/useTheme'
 import { useState } from 'react'
-import appIconUrl from './assets/app-icon.png'
+import appIconUrl from './assets/app-icon.webp'
 import { t } from './i18n'
 import { useLang } from './hooks/useLang'
 

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Minus, Square, X, Maximize2, Sun, Moon } from 'lucide-react'
-import appIconUrl from '../../assets/app-icon.png'
+import appIconUrl from '../../assets/app-icon.webp'
 import type { Theme } from '../../hooks/useTheme'
 import { lang, t } from '../../i18n'
 
