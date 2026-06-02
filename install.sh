@@ -68,6 +68,15 @@ fi
 
 echo -e "   ${C_GREEN}✓${C_RESET} Desktop Environment: ${C_BOLD}${DE}${C_RESET} — suportado\n"
 
+# ── Carregamento do módulo nct6775 (fans da placa-mãe) ───────────────────────
+if ! lsmod | grep -q nct6775; then
+  modprobe nct6775 2>/dev/null && echo -e "   ${C_GREEN}✓${C_RESET} Módulo nct6775 carregado\n" || true
+fi
+if [ ! -f /etc/modules-load.d/nct6775.conf ]; then
+  echo "nct6775" > /etc/modules-load.d/nct6775.conf
+  echo -e "   ${C_GREEN}✓${C_RESET} nct6775 configurado para carregar no boot\n"
+fi
+
 
 
 # ── 1. Dependências ───────────────────────────────────────────────────────────
