@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=Instalar MachCtrl
+GenericName=Instalador
+Comment=Instala o MachCtrl — Monitor de Hardware para Linux
+Exec=bash -c 'cd "$(dirname "$(readlink -f "%k")")" && bash machctrl-install.sh'
+Icon=system-software-install
+Terminal=false
+Type=Application
+Categories=System;
+StartupNotify=true
