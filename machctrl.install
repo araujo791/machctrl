@@ -1,6 +1,14 @@
 post_install() {
     systemctl daemon-reload
-    systemctl enable --now machctrl-backend.service
+
+    # Habilita e inicia o serviço
+    systemctl enable machctrl-backend.service 2>/dev/null || true
+    systemctl start machctrl-backend.service 2>/dev/null || true
+
+    # Verifica se realmente está enabled
+    if ! systemctl is-enabled machctrl-backend.service &>/dev/null; then
+        ln -sf /usr/lib/systemd/system/machctrl-backend.service                /etc/systemd/system/multi-user.target.wants/machctrl-backend.service 2>/dev/null || true
+    fi
 
     # Carrega módulo nct6775 para fans da placa-mãe
     modprobe nct6775 2>/dev/null || true
