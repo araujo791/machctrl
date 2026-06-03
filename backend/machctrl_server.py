@@ -2686,9 +2686,11 @@ class SensorServer:
 
     async def broadcast_loop(self):
         while True:
+            # Sempre lê sensores — necessário para _fan_auto_control aplicar
+            # configurações de fans mesmo sem clientes conectados
+            data = self.read_all_sensors()
+            self._last_sensor_data = data  # salva para _fan_auto_control usar
             if self.clients:
-                data = self.read_all_sensors()
-                self._last_sensor_data = data  # salva para _fan_auto_control usar
                 data["type"] = "sensors_update"
                 message = json.dumps(data)
                 dead_clients = set()
